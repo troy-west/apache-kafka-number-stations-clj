@@ -1,8 +1,6 @@
 (ns number-stations.generator
   (:require [clojure.java.io :as io])
-  (:import (javax.imageio ImageIO)
-           (java.awt.image BufferedImage
-                           Raster)))
+  (:import (javax.imageio ImageIO)))
 
 (defn pixel-seq [image-file]
   (let [raster (.getData (ImageIO/read image-file))
