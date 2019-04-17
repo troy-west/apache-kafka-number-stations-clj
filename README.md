@@ -28,9 +28,45 @@ I thought I would start by cataloging some of the various dimensions available:
 * Spatial dimensions, lat, lon, coordinate reference
 * Station name
   - Classified by language (English, German, Slavic, Other, Morse Code)
-* Sequence of number
+* Timezone
+* Sequence of numbersq
   - Timestamps
   - Prelude (with station identifer)
   - Number groups announcement
   - The numbers
   - Signoff (terminator word or sequence)
+
+## Kakfa Streams tools
+
+### Stateless
+
+* map
+* filter
+* flatMap
+* branch
+* foreach
+* groupBy
+* groupByKey
+* merge
+* selectKey
+
+### Stateful
+
+#### Aggregating
+
+* aggregate
+* count
+* reduce
+
+#### Joining
+
+* inner join streams/ktables
+* left join streams/ktables
+* outer join streams/ktables
+
+#### Windowing
+
+* tumbling
+* hopping
+* sliding
+* session
