@@ -29,7 +29,7 @@ I thought I would start by cataloging some of the various dimensions available:
 * Station name
   - Classified by language (English, German, Slavic, Other, Morse Code)
 * Timezone
-* Sequence of numbersq
+* Sequence of numbers
   - Timestamps
   - Prelude (with station identifer)
   - Number groups announcement
@@ -47,8 +47,8 @@ I thought I would start by cataloging some of the various dimensions available:
 * foreach
 * groupBy
 * groupByKey
-* merge
 * selectKey
+* merge
 
 ### Stateful
 
@@ -70,3 +70,8 @@ I thought I would start by cataloging some of the various dimensions available:
 * hopping
 * sliding
 * session
+
+#### PAPI
+
+* ktables
+* dedupe
