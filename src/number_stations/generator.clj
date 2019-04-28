@@ -194,7 +194,7 @@
                                    ints-to-colour-component)))))
         (.filter (reify Predicate
                    (test [_ _ message]
-                     (every? identity (:numbers message)))))
+                     (every? identity (:colour-component message)))))
         (.to "translated-numbers"))
 
     (with-open [driver (TopologyTestDriver. (.build builder) config)]
