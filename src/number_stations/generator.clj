@@ -158,14 +158,21 @@
 ;; number translation
 
 (defn index-numbers [numbers]
-  (zipmap numbers (map inc (range))))
+  (zipmap numbers (range)))
 
-(def number-lookup {\E (index-numbers ["one" "two" "three" "four" "five" "six" "seven" "eight" "nine" "ten"])
-                    \G (index-numbers ["eins" "zwei" "drei" "vier" "fünf" "sechs" "sieben" "acht" "neun" "zehn"])
-                    \M (index-numbers [".----" "..---" "...--" "....-" "....." "-...." "--..." "---.." "----." "-----"])})
+(def number-lookup {\E (index-numbers ["zero" "one" "two" "three" "four" "five" "six" "seven" "eight" "nine"])
+                    \G (index-numbers ["null" "eins" "zwei" "drei" "vier" "fünf" "sechs" "sieben" "acht" "neun"])
 
-(defn translate-numbers [numbers station-name]
-  (mapv #(get-in number-lookup [(first station-name) %]) numbers))
+                    \M (index-numbers ["-----" ".----" "..---" "...--" "....-" "....." "-...." "--..." "---.." "----."])})
+
+(defn translate-numbers
+  [{:keys [numbers name]}]
+  (mapv #(get-in number-lookup [(first name) %]) numbers))
+
+(defn ints-to-colour-component
+  [ints]
+  (when (and (seq ints) (every? int? ints))
+    (Integer/parseInt (apply str ints))))
 
 (deftest translate-numbers-test
 
@@ -180,22 +187,23 @@
     (-> (.stream builder "numbers")
         (.mapValues (reify ValueMapper
                       (apply [_ message]
-                        (update message :numbers translate-numbers (:name message)))))
+                        (assoc message
+                               :colour-component
+                               (-> message
+                                   translate-numbers
+                                   ints-to-colour-component)))))
         (.filter (reify Predicate
                    (test [_ _ message]
                      (every? identity (:numbers message)))))
         (.to "translated-numbers"))
 
     (with-open [driver (TopologyTestDriver. (.build builder) config)]
-      (.pipeInput driver (.create factory "numbers" "key" {:name "E-test-english" :numbers ["four" "three" "two" "one"]}))
-      (.pipeInput driver (.create factory "numbers" "key" {:name "G-test-german" :numbers ["sieben" "acht" "neun" "zehn"]}))
-      (.pipeInput driver (.create factory "numbers" "key" {:name "X-test-other" :numbers [1 2 3 4]}))
+      (.pipeInput driver (.create factory "numbers" "key" {:name "E-test-english" :numbers ["three" "two" "one"]}))
+      (.pipeInput driver (.create factory "numbers" "key" {:name "G-test-german" :numbers ["eins" "null" "null"]}))
+      (.pipeInput driver (.create factory "numbers" "key" {:name "X-test-other" :numbers [1 2 3]}))
 
-      (is (= {:name "E-test-english" :numbers [4 3 2 1]}
-             (read-output ^TopologyTestDriver driver "translated-numbers")))
+      (is (= 321 (:colour-component (read-output ^TopologyTestDriver driver "translated-numbers"))))
 
-      (is (= {:name "G-test-german" :numbers [7 8 9 10]}
-             (read-output ^TopologyTestDriver driver "translated-numbers")))
+      (is (= 100 (:colour-component (read-output ^TopologyTestDriver driver "translated-numbers"))))
 
-      (is (= nil
-             (read-output ^TopologyTestDriver driver "translated-numbers"))))))
+      (is (= nil (:colour-component (read-output ^TopologyTestDriver driver "translated-numbers")))))))
