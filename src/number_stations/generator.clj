@@ -1,24 +1,17 @@
 (ns number-stations.generator
-  (:require [clojure.java.io :as io]
-            [clojure.data.json :as json]
-            [clojure.test :refer :all]
+  (:require [clojure.data.json :as json]
+            [clojure.java.io :as io]
             [java-time :as time])
-  (:import (javax.imageio ImageIO)
-           (java.awt.image BufferedImage)
-           (java.awt Color)
-
-           (java.util Date Properties)
-           (org.apache.kafka.streams TopologyTestDriver StreamsBuilder)
-           (org.apache.kafka.streams.kstream Predicate TimeWindows Windowed KeyValueMapper Initializer Aggregator Materialized ValueMapper Initializer Aggregator Materialized TimeWindows KStream Consumed)
-           (org.apache.kafka.streams.test ConsumerRecordFactory)
-           (org.apache.kafka.clients.producer ProducerRecord)
-           (org.apache.kafka.common.serialization StringDeserializer StringSerializer Serializer Deserializer Serde)
-
-           (java.time Duration)
-           (org.apache.kafka.streams StreamsBuilder KafkaStreams StreamsConfig Topology KeyValue)
-           (org.apache.kafka.streams.state QueryableStoreTypes ReadOnlyWindowStore)
-           (org.apache.kafka.streams.processor TimestampExtractor)
-           ))
+  (:import java.awt.Color
+           java.awt.image.BufferedImage
+           java.time.Duration
+           java.util.concurrent.TimeUnit
+           java.util.Properties
+           javax.imageio.ImageIO
+           [org.apache.kafka.common.serialization Deserializer Serde Serializer]
+           [org.apache.kafka.streams KeyValue StreamsBuilder]
+           [org.apache.kafka.streams.kstream Aggregator Consumed Initializer KeyValueMapper KStream Merger Predicate SessionWindows TimeWindows ValueMapper]
+           org.apache.kafka.streams.processor.TimestampExtractor))
 
 (defn pixel-seq [buffered-img]
   (let [raster (.getData buffered-img)
@@ -220,3 +213,54 @@
         events    (.stream builder ^String input-topic (Consumed/with extractor))]
     (correlate-rgb events output-topic)
     (.build builder)))
+
+(def pt1m-session-window (SessionWindows/with (.toMillis TimeUnit/MINUTES 1)))
+
+(defn group-by-session
+  [^KStream stream output-topic]
+  (-> (.groupByKey stream)
+      (.windowedBy ^SessionWindows pt1m-session-window)
+      (.aggregate (reify Initializer
+                    (apply [_] {:received-primer   false
+                                :expected-messages 0
+                                :pixels            []}))
+                  (reify Aggregator
+                    (apply [_ _ message agg]
+                      (if (:number-of-messages message)
+                        (assoc agg
+                               :expected-messages (:number-of-messages message)
+                               :received-primer true)
+                        (update agg :pixels conj message))))
+                  (reify Merger
+                    (apply [_ k v1 v2]
+                      {:received-primer   (or (:received-primer v1)
+                                              (:received-primer v2))
+                       :expected-messages (+ (:expected-messages v1)
+                                             (:expected-messages v2))
+                       :pixels            (into (:pixels v1) (:pixels v2))})))
+      (.toStream)
+      (.map (reify KeyValueMapper
+              (apply [_ k v]
+                (KeyValue. (:name (first v)) v))))
+      (.filter (reify Predicate
+                 (test [_ k v]
+                   (boolean (and v
+                                 (:received-primer v)
+                                 (= (:expected-messages v)
+                                    (count (:pixels v))))))))
+      (.to output-topic)))
+
+(defn group-by-session-topology
+  [input-topic output-topic]
+  (let [builder   (StreamsBuilder.)
+        extractor (reify TimestampExtractor
+                    (extract [_ record _]
+                      (:time (.value record))))
+        events    (.stream builder ^String input-topic (Consumed/with extractor))]
+    (group-by-session events output-topic)
+    (.build builder)))
+
+;; TODO -group by special id of last pixel in row, this gives an image.
+;; materialize to store via latitude -- overwrite
+;; going back, insert dedup into topologies -- pixel repetitition
+;; insert join into topologies -- (colour cycling)
