@@ -151,16 +151,6 @@
                               "default.value.serde" "number_stations.generator.JsonSerde"})
               props))
 
-(defn read-output
-  [driver topic]
-  (when-let [record (.readOutput ^TopologyTestDriver
-                                 driver
-                                 topic
-                                 (StringDeserializer.)
-                                 (->JsonDeserializer))]
-    (.value ^ProducerRecord record)))
-
-
 ;; number translation
 
 (defn index-numbers [numbers]
@@ -180,39 +170,7 @@
   (when (and (seq ints) (every? int? ints))
     (Integer/parseInt (apply str ints))))
 
-(deftest translate-numbers-test
 
-  (let [start-time (.getTime (Date.))
-        factory    (ConsumerRecordFactory. "numbers"
-                                           (StringSerializer.)
-                                           (->JsonSerializer)
-                                           start-time
-                                           6000)
-        builder    (StreamsBuilder.)]
-
-    (-> (.stream builder "numbers")
-        (.mapValues (reify ValueMapper
-                      (apply [_ message]
-                        (assoc message
-                               :colour-component
-                               (-> message
-                                   translate-numbers
-                                   ints-to-colour-component)))))
-        (.filter (reify Predicate
-                   (test [_ _ message]
-                     (boolean (:colour-component message)))))
-        (.to "translated-numbers"))
-
-    (with-open [driver (TopologyTestDriver. (.build builder) config)]
-      (.pipeInput driver (.create factory "numbers" "key" {:name "E-test-english" :numbers ["three" "two" "one"]}))
-      (.pipeInput driver (.create factory "numbers" "key" {:name "G-test-german" :numbers ["eins" "null" "null"]}))
-      (.pipeInput driver (.create factory "numbers" "key" {:name "X-test-other" :numbers [1 2 3]}))
-
-      (is (= 321 (:colour-component (read-output ^TopologyTestDriver driver "translated-numbers"))))
-
-      (is (= 100 (:colour-component (read-output ^TopologyTestDriver driver "translated-numbers"))))
-
-      (is (= nil (:colour-component (read-output ^TopologyTestDriver driver "translated-numbers")))))))
 
 
 
@@ -236,7 +194,24 @@
                 (KeyValue. (:name (first v)) (sort-by :time v)))))
       (.to output-topic)))
 
-(defn topology
+(defn translate-numbers-topology
+  [input-topic output-topic]
+  (let [builder (StreamsBuilder.)]
+    (-> (.stream builder input-topic)
+        (.mapValues (reify ValueMapper
+                      (apply [_ message]
+                        (assoc message
+                               :colour-component
+                               (-> message
+                                   translate-numbers
+                                   ints-to-colour-component)))))
+        (.filter (reify Predicate
+                   (test [_ _ message]
+                     (boolean (:colour-component message)))))
+        (.to output-topic))
+    (.build builder)))
+
+(defn correlate-rgb-topology
   [input-topic output-topic]
   (let [builder   (StreamsBuilder.)
         extractor (reify TimestampExtractor
@@ -245,37 +220,3 @@
         events    (.stream builder ^String input-topic (Consumed/with extractor))]
     (correlate-rgb events output-topic)
     (.build builder)))
-
-(def config2 (let [props (Properties.)]
-              (.putAll props {"application.id"      "adsasd"
-                              "bootstrap.servers"   "dummy:1234"
-                              "default.key.serde"   "org.apache.kafka.common.serialization.Serdes$StringSerde"
-                              "default.value.serde" "number_stations.generator.JsonSerde"})
-              props))
-
-(deftest correlate-rgb-test
-
-  (let [input-topic "translated-numbers"
-        output-topic "rgb-stream"
-        factory    (ConsumerRecordFactory. input-topic
-                                           (StringSerializer.)
-                                           (->JsonSerializer))]
-
-    (with-open [driver (TopologyTestDriver. (topology input-topic output-topic) config2)]
-
-      (.pipeInput driver (.create factory input-topic "key" {:time 0 :name "name"}))
-      (.pipeInput driver (.create factory input-topic "key" {:time 1000 :name "name"}))
-      (.pipeInput driver (.create factory input-topic "key" {:time 2000 :name "name"}))
-
-      (.pipeInput driver (.create factory input-topic "key" {:time 12000 :name "name"}))
-      (.pipeInput driver (.create factory input-topic "key" {:time 11000 :name "name"}))
-      (.pipeInput driver (.create factory input-topic "key" {:time 13000 :name "name"}))
-
-      (is (= [{:time 0, :name "name"}
-              {:time 1000, :name "name"}
-              {:time 2000, :name "name"}]
-             (read-output ^TopologyTestDriver driver output-topic)))
-      (is (= [{:time 11000, :name "name"}
-              {:time 12000, :name "name"}
-              {:time 13000, :name "name"}]
-             (read-output ^TopologyTestDriver driver output-topic))))))
