@@ -9,10 +9,16 @@
 
            (java.util Date Properties)
            (org.apache.kafka.streams TopologyTestDriver StreamsBuilder)
-           (org.apache.kafka.streams.kstream Predicate TimeWindows Windowed KeyValueMapper Initializer Aggregator Materialized ValueMapper)
+           (org.apache.kafka.streams.kstream Predicate TimeWindows Windowed KeyValueMapper Initializer Aggregator Materialized ValueMapper Initializer Aggregator Materialized TimeWindows KStream Consumed)
            (org.apache.kafka.streams.test ConsumerRecordFactory)
            (org.apache.kafka.clients.producer ProducerRecord)
-           (org.apache.kafka.common.serialization StringDeserializer StringSerializer Serializer Deserializer Serde)))
+           (org.apache.kafka.common.serialization StringDeserializer StringSerializer Serializer Deserializer Serde)
+
+           (java.time Duration)
+           (org.apache.kafka.streams StreamsBuilder KafkaStreams StreamsConfig Topology KeyValue)
+           (org.apache.kafka.streams.state QueryableStoreTypes ReadOnlyWindowStore)
+           (org.apache.kafka.streams.processor TimestampExtractor)
+           ))
 
 (defn pixel-seq [buffered-img]
   (let [raster (.getData buffered-img)
@@ -194,7 +200,7 @@
                                    ints-to-colour-component)))))
         (.filter (reify Predicate
                    (test [_ _ message]
-                     (:colour-component message))))
+                     (boolean (:colour-component message)))))
         (.to "translated-numbers"))
 
     (with-open [driver (TopologyTestDriver. (.build builder) config)]
@@ -207,3 +213,69 @@
       (is (= 100 (:colour-component (read-output ^TopologyTestDriver driver "translated-numbers"))))
 
       (is (= nil (:colour-component (read-output ^TopologyTestDriver driver "translated-numbers")))))))
+
+
+
+(def pt10s-window (TimeWindows/of (Duration/ofSeconds 10)))
+
+(defn correlate-rgb
+  [^KStream stream output-topic]
+  (-> (.groupByKey stream)
+      (.windowedBy ^TimeWindows pt10s-window)
+      (.aggregate (reify Initializer
+                    (apply [_] []))
+                  (reify Aggregator
+                    (apply [_ _ message colour-components]
+                      (conj colour-components message))))
+      (.toStream)
+      (.filter (reify Predicate
+                 (test [_ _ colour-components]
+                   (= (count colour-components) 3))))
+      (.map (reify KeyValueMapper
+              (apply [_ k v]
+                (KeyValue. (:name (first v)) (sort-by :time v)))))
+      (.to output-topic)))
+
+(defn topology
+  [input-topic output-topic]
+  (let [builder   (StreamsBuilder.)
+        extractor (reify TimestampExtractor
+                    (extract [_ record _]
+                      (:time (.value record))))
+        events    (.stream builder ^String input-topic (Consumed/with extractor))]
+    (correlate-rgb events output-topic)
+    (.build builder)))
+
+(def config2 (let [props (Properties.)]
+              (.putAll props {"application.id"      "adsasd"
+                              "bootstrap.servers"   "dummy:1234"
+                              "default.key.serde"   "org.apache.kafka.common.serialization.Serdes$StringSerde"
+                              "default.value.serde" "number_stations.generator.JsonSerde"})
+              props))
+
+(deftest correlate-rgb-test
+
+  (let [input-topic "translated-numbers"
+        output-topic "rgb-stream"
+        factory    (ConsumerRecordFactory. input-topic
+                                           (StringSerializer.)
+                                           (->JsonSerializer))]
+
+    (with-open [driver (TopologyTestDriver. (topology input-topic output-topic) config2)]
+
+      (.pipeInput driver (.create factory input-topic "key" {:time 0 :name "name"}))
+      (.pipeInput driver (.create factory input-topic "key" {:time 1000 :name "name"}))
+      (.pipeInput driver (.create factory input-topic "key" {:time 2000 :name "name"}))
+
+      (.pipeInput driver (.create factory input-topic "key" {:time 12000 :name "name"}))
+      (.pipeInput driver (.create factory input-topic "key" {:time 11000 :name "name"}))
+      (.pipeInput driver (.create factory input-topic "key" {:time 13000 :name "name"}))
+
+      (is (= [{:time 0, :name "name"}
+              {:time 1000, :name "name"}
+              {:time 2000, :name "name"}]
+             (read-output ^TopologyTestDriver driver output-topic)))
+      (is (= [{:time 11000, :name "name"}
+              {:time 12000, :name "name"}
+              {:time 13000, :name "name"}]
+             (read-output ^TopologyTestDriver driver output-topic))))))
