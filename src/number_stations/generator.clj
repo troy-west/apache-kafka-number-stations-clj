@@ -212,9 +212,12 @@
 
 (def pt1m-session-window (SessionWindows/with (.toMillis TimeUnit/MINUTES 1)))
 
-(defn group-by-session
+(defn group-by-row
+  "Stream key is :name of message (radio station name)"
   [^KStream stream output-topic]
   ;; TODO this is getting quite complicated, so don't make it more complex, but see if it can be simpler.
+  ;; simpler in a meaningful way, which can be taught
+  ;; identity "key is :name" constraint. Is this enforced? What happens if we key it incorrectly?
   (-> (.groupByKey stream)
       (.windowedBy ^SessionWindows pt1m-session-window)
       (.aggregate (reify Initializer
@@ -255,15 +258,16 @@
                                     :pixels pixels))))))
       (.to output-topic)))
 
-(defn group-by-session-topology
+(defn group-by-row-topology
   [input-topic output-topic]
   (let [builder   (StreamsBuilder.)
         extractor (reify TimestampExtractor
                     (extract [_ record _]
                       (:time (.value record))))
         events    (.stream builder ^String input-topic (Consumed/with extractor))]
-    (group-by-session events output-topic)
+    (group-by-row events output-topic)
     (.build builder)))
+
 
 
 

@@ -90,7 +90,7 @@
               {:time 13000, :name "name"}]
              (read-output ^TopologyTestDriver driver output-topic))))))
 
-(deftest group-by-session-test
+(deftest group-by-row-test
 
   (let [input-topic    "rgb-stream"
         output-topic   "rgb-row-stream"
@@ -109,7 +109,7 @@
                         {:time 1160000 :name "name" :number-of-messages 1 :latitude 37 :longitude 144}
                         {:time 1160010 :name "name" :rgb [10 11 12] :latitude 37 :longitude 144}]]
 
-    (with-open [driver (TopologyTestDriver. (generator/group-by-session-topology input-topic output-topic) config)]
+    (with-open [driver (TopologyTestDriver. (generator/group-by-row-topology input-topic output-topic) config)]
       (write-inputs driver factory input-topic input-messages)
 
       (is (= ["name" {:time      1
