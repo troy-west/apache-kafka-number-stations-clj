@@ -27,12 +27,18 @@
                      (.stream builder ^String input-topic consumed)
                      (.stream builder ^String input-topic))]
 
-     (stream-operations events)
-
-     (when (seq output-topic)
-       (.to (stream-operations events) output-topic))
+     (cond-> (stream-operations events)
+       (seq output-topic)
+       (.to output-topic))
 
      (.build builder))))
+
+(defn instrument-stream
+  [input-stream stream-name]
+  (.foreach input-stream (reify ForeachAction
+                           (apply [_ k v]
+                             (print (format "%-40s => [key=%s, value=%s]" stream-name k v) "\n\n"))))
+  input-stream)
 
 (defn pixel-seq [buffered-img]
   (let [raster (.getData buffered-img)
