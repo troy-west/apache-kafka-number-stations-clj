@@ -7,18 +7,17 @@
 (def number-station-message-numbers-stereotype
   {:time       0         ;; epoch timestamp (long)
    :name       "E-123"   ;; radio station name
-   :session-id "xyz-123" ;; session-id (but randomized -- only last pixel in row has a valid session id)
    :latitude   37
    :longitude  144
    :numbers    ["one" "two" "three"]})
 
 ;; TOPIC "number-stations"
 (def number-station-message-primer-stereotype
-  {:time               0 ;; epoch timestamp (long)
-   :name               "E-123" ;; radio station name
-   :latitude           37
-   :longitude          144
-   :number-of-messages 100 ;; number of pixels
+  {:time             0 ;; epoch timestamp (long)
+   :name             "E-123" ;; radio station name
+   :latitude         37
+   :longitude        144
+   :number-of-pixels 100 ;; number of pixels
    })
 
 ;; TOPIC "translate-numbers"
