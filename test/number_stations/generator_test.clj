@@ -97,16 +97,16 @@
         factory        (ConsumerRecordFactory. input-topic
                                                (StringSerializer.)
                                                (->JsonSerializer))
-        input-messages [{:time 0 :name "name" :number-of-messages 3 :latitude 37 :longitude 144}
+        input-messages [{:time 0 :name "name" :number-of-pixels 3 :latitude 37 :longitude 144}
                         {:time 1 :name "name" :rgb [1 2 3] :latitude 37 :longitude 144}
                         {:time 2 :name "name" :rgb [4 5 6] :latitude 37 :longitude 144}
                         {:time 3 :name "name" :rgb [7 8 9] :latitude 37 :longitude 144}
-                        {:time 60010 :name "name" :number-of-messages 2 :latitude 37 :longitude 144}
+                        {:time 60010 :name "name" :number-of-pixels 2 :latitude 37 :longitude 144}
                         {:time 60020 :name "name" :rgb [10 11 12] :latitude 37 :longitude 144}
                         {:time 60030 :name "name" :rgb [10 11 13] :latitude 37 :longitude 144}
-                        {:time 1060000 :name "name" :number-of-messages 1 :latitude 37 :longitude 144}
+                        {:time 1060000 :name "name" :number-of-pixels 1 :latitude 37 :longitude 144}
                         {:time 1060010 :name "name" :rgb [10 11 12] :latitude 37 :longitude 144}
-                        {:time 1160000 :name "name" :number-of-messages 1 :latitude 37 :longitude 144}
+                        {:time 1160000 :name "name" :number-of-pixels 1 :latitude 37 :longitude 144}
                         {:time 1160010 :name "name" :rgb [10 11 12] :latitude 37 :longitude 144}]]
 
     (with-open [driver (TopologyTestDriver. (generator/group-by-row-topology input-topic output-topic) (config))]
@@ -238,7 +238,7 @@
         factory        (ConsumerRecordFactory. input-topic
                                                (StringSerializer.)
                                                (->JsonSerializer))
-        input-messages [{:time 0 :name "E-123" :number-of-messages 3 :latitude 37 :longitude 144}
+        input-messages [{:time 0 :name "E-123" :number-of-pixels 1 :latitude 37 :longitude 144}
 
                         {:time 1 :name "E-123" :numbers ["one" "zero" "zero"] :latitude 37 :longitude 144}
                         {:time 1 :name "E-123" :numbers ["one" "zero" "zero"] :latitude 37 :longitude 144}

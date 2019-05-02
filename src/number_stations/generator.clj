@@ -252,23 +252,23 @@
       (.groupByKey)
       (.windowedBy ^SessionWindows pt1m-session-window)
       (.aggregate (reify Initializer
-                    (apply [_] {:received-primer   false
-                                :expected-messages 0
-                                :pixels            []}))
+                    (apply [_] {:received-primer false
+                                :expected-pixels 0
+                                :pixels          []}))
                   (reify Aggregator
                     (apply [_ _ message agg]
-                      (if (:number-of-messages message)
+                      (if (:number-of-pixels message)
                         (assoc agg
-                               :expected-messages (:number-of-messages message)
+                               :expected-pixels (:number-of-pixels message)
                                :received-primer true)
                         (update agg :pixels conj message))))
                   (reify Merger
                     (apply [_ k v1 v2]
-                      {:received-primer   (or (:received-primer v1)
-                                              (:received-primer v2))
-                       :expected-messages (+ (:expected-messages v1)
-                                             (:expected-messages v2))
-                       :pixels            (into (:pixels v1) (:pixels v2))})))
+                      {:received-primer (or (:received-primer v1)
+                                            (:received-primer v2))
+                       :expected-pixels (+ (:expected-pixels v1)
+                                           (:expected-pixels v2))
+                       :pixels          (into (:pixels v1) (:pixels v2))})))
       (.toStream)
       (instrument-stream :group-by-row/aggregate)
       (.map (reify KeyValueMapper
@@ -280,7 +280,8 @@
                    (boolean (and v
                                  (:received-primer v)
                                  (< 0 (count (:pixels v)))
-                                 (= (:expected-messages v)
+                                 ;; this requires exactly-once semantics to work.
+                                 (= (:expected-pixels v)
                                     (count (:pixels v))))))))
       (instrument-stream :group-by-row/filter)
       (.map (reify KeyValueMapper
@@ -288,8 +289,10 @@
                 (let [{:keys [pixels]} v
                       leader           (first pixels)]
                   (KeyValue. (:name leader)
-                             (assoc (select-keys leader [:time :name :latitude :longitude])
-                                    :pixels pixels))))))
+                             (-> leader
+                                 (select-keys [:time :name :latitude :longitude])
+                                 (assoc :pixels pixels)
+                                 (dissoc :received-primer :expected-pixels)))))))
       (instrument-stream :group-by-row/map2)))
 
 (defn group-by-row-topology
@@ -354,10 +357,10 @@
                                                (into-array Predicate
                                                            [(reify Predicate
                                                               (test [_ k v]
-                                                                (boolean (:number-of-messages v))))
+                                                                (boolean (:number-of-pixels v))))
                                                             (reify Predicate
                                                               (test [_ k v]
-                                                                (boolean (not (:number-of-messages v)))))]))]
+                                                                (boolean (not (:number-of-pixels v)))))]))]
     (let [correlated-rgb-stream (-> number-stream
                                     (instrument-stream :number-stream)
                                     translate-numbers-stream-operations
