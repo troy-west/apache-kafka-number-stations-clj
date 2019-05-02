@@ -57,10 +57,13 @@
     (System/arraycopy src-array 0 dst-array 0 (alength src-array))
     buffered-img))
 
-(defn write-output [buffered-img]
-  (ImageIO/write buffered-img
-                 "png"
-                 (io/file "resources/output.png")))
+(defn write-output
+  ([buffered-img]
+   (write-output buffered-img nil))
+  ([buffered-img filename]
+   (ImageIO/write buffered-img
+                  "png"
+                  (io/file (or filename "resources/output.png")))))
 
 ;; let's add some context to the pixels
 
