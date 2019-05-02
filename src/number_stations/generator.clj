@@ -270,9 +270,11 @@
                                              (:expected-messages v2))
                        :pixels            (into (:pixels v1) (:pixels v2))})))
       (.toStream)
+      (instrument-stream :group-by-row/aggregate)
       (.map (reify KeyValueMapper
               (apply [_ k v]
                 (KeyValue. (:name (first v)) (update v :pixels #(sort-by :time %))))))
+      (instrument-stream :group-by-row/map1)
       (.filter (reify Predicate
                  (test [_ k v]
                    (boolean (and v
@@ -280,21 +282,23 @@
                                  (< 0 (count (:pixels v)))
                                  (= (:expected-messages v)
                                     (count (:pixels v))))))))
+      (instrument-stream :group-by-row/filter)
       (.map (reify KeyValueMapper
               (apply [_ k v]
                 (let [{:keys [pixels]} v
                       leader           (first pixels)]
                   (KeyValue. (:name leader)
                              (assoc (select-keys leader [:time :name :latitude :longitude])
-                                    :pixels pixels))))))))
+                                    :pixels pixels))))))
+      (instrument-stream :group-by-row/map2)))
 
 (defn group-by-row-topology
   [input-topic output-topic]
-  (topology input-topic group-by-row-stream output-topic))
+  (topology input-topic group-by-row-stream-operations output-topic))
 
 (def unlimited-window (UnlimitedWindows/of))
 
-(defn group-by-rows-stream
+(defn group-by-rows-stream-operations
   "Stream key is :name of message (radio station name)"
   [^KStream stream]
   ;; TODO this is getting quite complicated, so don't make it more complex, but see if it can be simpler.
@@ -319,28 +323,60 @@
 
 (defn group-by-rows-topology
   [input-topic output-topic]
-  (topology input-topic group-by-rows-stream output-topic))
+  (topology input-topic group-by-rows-stream-operations output-topic))
 
-(defn rows-to-image
-  [stream]
-  (.foreach stream (reify ForeachAction
-                     (apply [_ _ rows]
-                       (let [pixel-rows (->> rows
-                                             :rows
-                                             (map :pixels)
-                                             (mapv (fn [pixels]
-                                                     (mapv :rgb pixels))))
-                             width      (apply max (map count pixel-rows))]
-                         (-> (render-image (mapcat (fn [pixels]
-                                                     ;; pad pixels to same length
-                                                     (vec (concat pixels (repeat (- (count pixels) width) nil))))
-                                                   pixel-rows)
-                                           width)
-                             (write-output)))))))
+(defn rows-to-image-stream-operations
+  ([stream]
+   (rows-to-image-stream-operations stream nil))
+  ([stream filename]
+   (.foreach stream (reify ForeachAction
+                      (apply [_ _ rows]
+                        (let [pixel-rows (->> rows
+                                              :rows
+                                              (map :pixels)
+                                              (mapv (fn [pixels]
+                                                      (mapv :rgb pixels))))
+                              width      (apply max (map count pixel-rows))]
+                          (-> (render-image (mapcat (fn [pixels]
+                                                      ;; pad pixels to same length
+                                                      (vec (concat pixels (repeat (- (count pixels) width) nil))))
+                                                    pixel-rows)
+                                            width)
+                              (write-output filename))))))))
 
 (defn rows-to-image-topology
   [input-topic]
-  (topology input-topic rows-to-image))
+  (topology input-topic rows-to-image-stream-operations))
+
+(defn number-stations-to-image-stream
+  [^KStream stream]
+  (let [[primer-stream number-stream] (.branch stream
+                                               (into-array Predicate
+                                                           [(reify Predicate
+                                                              (test [_ k v]
+                                                                (boolean (:number-of-messages v))))
+                                                            (reify Predicate
+                                                              (test [_ k v]
+                                                                (boolean (not (:number-of-messages v)))))]))]
+    (let [correlated-rgb-stream (-> number-stream
+                                    (instrument-stream :number-stream)
+                                    translate-numbers-stream-operations
+                                    (instrument-stream :translate-numbers)
+                                    correlate-rgb-stream-operations
+                                    (instrument-stream :correlate-rgb))]
+
+      (-> (.merge primer-stream correlated-rgb-stream)
+          (instrument-stream :merged/primer+rgb)
+          group-by-row-stream-operations
+          (instrument-stream :group-by-row)
+          group-by-rows-stream-operations
+          (instrument-stream :group-by-rows)
+          (rows-to-image-stream "resources/output2.png")))))
+
+(defn number-stations-to-image-topology
+  [input-topic]
+  (topology input-topic number-stations-to-image-stream))
+
 
 ;; TODO -group by special id of last pixel in row, this gives an image.
 ;; materialize to store via latitude -- overwrite

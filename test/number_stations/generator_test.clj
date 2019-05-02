@@ -75,23 +75,19 @@
         factory        (ConsumerRecordFactory. input-topic
                                                (StringSerializer.)
                                                (->JsonSerializer))
-        input-messages [{:time 0 :name "name"}
-                        {:time 1000 :name "name"}
-                        {:time 2000 :name "name"}
-                        {:time 12000 :name "name"}
-                        {:time 11000 :name "name"}
-                        {:time 13000 :name "name"}]]
+        input-messages [{:time 0 :name "name" :colour-component 0}
+                        {:time 1000 :name "name" :colour-component 100}
+                        {:time 2000 :name "name" :colour-component 200}
+                        {:time 12000 :name "name" :colour-component 50}
+                        {:time 11000 :name "name" :colour-component 150}
+                        {:time 13000 :name "name" :colour-component 250}]]
 
     (with-open [driver (TopologyTestDriver. (generator/correlate-rgb-topology input-topic output-topic) (config))]
       (write-inputs driver factory input-topic input-messages)
 
-      (is (= [{:time 0, :name "name"}
-              {:time 1000, :name "name"}
-              {:time 2000, :name "name"}]
+      (is (= {:time 0 :name "name" :rgb [0 100 200]}
              (read-output ^TopologyTestDriver driver output-topic)))
-      (is (= [{:time 11000, :name "name"}
-              {:time 12000, :name "name"}
-              {:time 13000, :name "name"}]
+      (is (= {:time 11000 :name "name" :rgb [150 50 250]}
              (read-output ^TopologyTestDriver driver output-topic))))))
 
 (deftest group-by-row-test
@@ -236,3 +232,18 @@
 
       (is (= nil
              (read-key-value ^TopologyTestDriver driver output-topic))))))
+
+(deftest number-stations-to-image-topology-test
+  (let [input-topic    "number"
+        factory        (ConsumerRecordFactory. input-topic
+                                               (StringSerializer.)
+                                               (->JsonSerializer))
+        input-messages [{:time 0 :name "E-123" :number-of-messages 3 :latitude 37 :longitude 144}
+
+                        {:time 1 :name "E-123" :numbers ["one" "zero" "zero"] :latitude 37 :longitude 144}
+                        {:time 1 :name "E-123" :numbers ["one" "zero" "zero"] :latitude 37 :longitude 144}
+                        {:time 1 :name "E-123" :numbers ["one" "zero" "zero"] :latitude 37 :longitude 144}]]
+
+    (with-open [driver (TopologyTestDriver. (generator/number-stations-to-image-topology input-topic) (config))]
+      (write-inputs driver factory input-topic input-messages)))
+  )
