@@ -168,13 +168,14 @@
   (when (and (seq ints) (every? int? ints))
     (Integer/parseInt (apply str ints))))
 
+(def pt10s-window (TimeWindows/of (Duration/ofSeconds 10)))
+
 (comment
 
   (def bi (ImageIO/read (io/resource "source.png")))
 
   ;; a seq of pixel tuples [r g b a]
   (def pixels (pixel-seq bi))
-
 
   (.getWidth bi)
   (.getHeight bi)
@@ -205,33 +206,45 @@
                                    (map :numbers))
                               (+ (.getWidth bi) 0)))
 
-  (->> (map #(take 3 %) pixels)
-       (mapcat (fn [[r g b]]
-                 [{:name "E-123" :numbers (translate-to-words {:name "E-123" :numbers (mapv #(Long/parseLong (str %)) (str r))})}]
-                 [{:name "E-123" :numbers (translate-to-words {:name "E-123" :numbers (mapv #(Long/parseLong (str %)) (str g))})}]
-                 [{:name "E-123" :numbers (translate-to-words {:name "E-123" :numbers (mapv #(Long/parseLong (str %)) (str b))})}]))
-       (take 10)))
+  (def rgb-window-duration (.size pt10s-window))
 
-(def pt10s-window (TimeWindows/of (Duration/ofSeconds 10)))
+  (defn pad-to-three
+    [components]
+    (into (vec (repeat (- 3 (count components)) 0))
+          components))
 
-(defn translate-numbers-stream-operations
-  [^KStream stream]
-  (-> stream
-      (.filter (reify Predicate
-                 (test [_ _ message]
-                   (boolean (:numbers message)))))
-      (instrument-stream :translate-numbers/filter1)
-      (.mapValues (reify ValueMapper
-                    (apply [_ message]
-                      (-> message
-                          (assoc :colour-component
-                                 (ints-to-colour-component (translate-to-numbers message)))
-                          (dissoc :numbers)))))
-      (instrument-stream :translate-numbers/mapValues)
-      (.filter (reify Predicate
-                 (test [_ _ message]
-                   (boolean (:colour-component message)))))
-      (instrument-stream :translate-numbers/filter2)))
+  (let [width (.getWidth bi)]
+    (->> (map #(take 3 %) pixels)
+         (partition width)
+         (mapcat (fn [j row]
+                   (let [time (* rgb-window-duration j)]
+                     (mapcat (fn [[r g b]]
+                               [{:time time :name "E-123" :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str r)))})}]
+                               [{:time time :name "E-123" :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str g)))})}]
+                               [{:time time :name "E-123" :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str b)))})}])
+
+                             row)))
+                 (range))
+         (take 10)))
+
+  (defn translate-numbers-stream-operations
+    [^KStream stream]
+    (-> stream
+        (.filter (reify Predicate
+                   (test [_ _ message]
+                     (boolean (:numbers message)))))
+        (instrument-stream :translate-numbers/filter1)
+        (.mapValues (reify ValueMapper
+                      (apply [_ message]
+                        (-> message
+                            (assoc :colour-component
+                                   (ints-to-colour-component (translate-to-numbers message)))
+                            (dissoc :numbers)))))
+        (instrument-stream :translate-numbers/mapValues)
+        (.filter (reify Predicate
+                   (test [_ _ message]
+                     (boolean (:colour-component message)))))
+        (instrument-stream :translate-numbers/filter2))))
 
 (defn correlate-rgb-stream-operations
   [^KStream stream]
