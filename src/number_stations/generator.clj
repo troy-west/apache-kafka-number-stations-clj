@@ -34,11 +34,16 @@
 
      (.build builder))))
 
+(def ^:dynamic *instrument* true)
+(def ^:dynamic *instrument-stream-name* #{})
+
 (defn instrument-stream
   [input-stream stream-name]
-  (.foreach input-stream (reify ForeachAction
-                           (apply [_ k v]
-                             (println (format "%-40s => [key=%s, value=%s]" stream-name k v)))))
+  (when (or *instrument*
+            (get *instrument-stream-name* stream-name))
+    (.foreach input-stream (reify ForeachAction
+                             (apply [_ k v]
+                               (println (format "%-40s => [key=%s, value=%s]" stream-name k v))))))
   input-stream)
 
 (defn pixel-seq [buffered-img]
@@ -206,6 +211,9 @@
                                    (map :numbers))
                               (+ (.getWidth bi) 0))))
 
+(def small-image (ImageIO/read (io/resource "small.png")))
+(def source-image (ImageIO/read (io/resource "source.png")))
+
 (def rgb-window-duration (* 2 (.size pt10s-window)))
 
 (defn pad-to-three
@@ -215,21 +223,25 @@
 
 (defn generate-messages
   [image]
-  (let [pixels (pixel-seq image)
-        width  (.getWidth bi)]
+  (let [pixels                  (pixel-seq image)
+        width                   (.getWidth image)
+        rgb-window-row-duration (* 2 rgb-window-duration width)]
     (->> (map #(take 3 %) pixels)
          (partition width)
          (mapcat (fn [j row]
-                   (let [time (* rgb-window-duration j)]
-                     (into [{:time time :name "E-123" :longitude 0 :latitude j :number-of-pixels (count row)}]
-                           (mapcat (fn [[r g b]]
-                                     [{:time time :name "E-123" :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str r)))})}]
-                                     [{:time time :name "E-123" :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str g)))})}]
-                                     [{:time time :name "E-123" :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str b)))})}])
-
+                   (let [station-name (str "E-" j)
+                         row-time     (* j rgb-window-row-duration)]
+                     (into [{:time row-time :name "E-123" :longitude 0 :latitude j :number-of-pixels (count row)}]
+                           (mapcat (fn [i [r g b]]
+                                     (let [time (+ row-time (* rgb-window-duration i))]
+                                       [{:time time :name station-name :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str r)))})}
+                                        {:time time :name station-name :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str g)))})}
+                                        {:time time :name station-name :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str b)))})}]))
+                                   (range)
                                    row))))
                  (range)))))
 
+#_(take 10 (generate-messages source-image))
 
 (defn translate-numbers-stream-operations
   [^KStream stream]
@@ -260,15 +272,18 @@
                     (apply [_ _ message colour-components]
                       (conj colour-components message))))
       (.toStream)
+      (instrument-stream :correlate-rgb/aggregate)
       (.filter (reify Predicate
                  (test [_ _ colour-components]
                    (= (count colour-components) 3))))
+      (instrument-stream :correlate-rgb/filter)
       (.map (reify KeyValueMapper
               (apply [_ k v]
                 (let [[leader :as components] (sort-by :time v)]
                   (KeyValue. (:name leader) (-> leader
                                                 (assoc :rgb (mapv :colour-component components))
-                                                (dissoc :colour-component)))))))))
+                                                (dissoc :colour-component)))))))
+      (instrument-stream :correlate-rgb/map)))
 
 (defn translate-numbers-topology
   [input-topic output-topic]
@@ -402,6 +417,9 @@
                                                             (reify Predicate
                                                               (test [_ k v]
                                                                 (boolean (not (:number-of-pixels v)))))]))]
+
+    (instrument-stream primer-stream :primer-stream)
+
     (let [correlated-rgb-stream (-> number-stream
                                     (instrument-stream :number-stream)
                                     translate-numbers-stream-operations
@@ -415,7 +433,7 @@
           (instrument-stream :group-by-row)
           group-by-rows-stream-operations
           (instrument-stream :group-by-rows)
-          (rows-to-image-stream output-image-path)))))
+          (rows-to-image-stream-operations output-image-path)))))
 
 (defn number-stations-to-image-topology
   [input-topic output-image-path]

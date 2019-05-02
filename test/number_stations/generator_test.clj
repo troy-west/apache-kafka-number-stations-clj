@@ -244,6 +244,18 @@
                         {:time 1 :name "E-123" :numbers ["one" "zero" "zero"] :latitude 37 :longitude 144}
                         {:time 1 :name "E-123" :numbers ["one" "zero" "zero"] :latitude 37 :longitude 144}]]
 
-    (with-open [driver (TopologyTestDriver. (generator/number-stations-to-image-topology input-topic "resources/output3.png") (config))]
+    (with-open [driver (TopologyTestDriver. (generator/number-stations-to-image-topology input-topic "resources/output4.png") (config))]
       (write-inputs driver factory input-topic input-messages)))
+  )
+
+(deftest number-stations-to-image-topology-test
+  (let [input-topic    "number"
+        factory        (ConsumerRecordFactory. input-topic
+                                               (StringSerializer.)
+                                               (->JsonSerializer))
+        input-messages (generator/generate-messages generator/small-image)]
+    (binding [generator/*instrument*   false
+              generator/*instrument-stream-name* #{:primer-stream :group-by-row}]
+      (with-open [driver (TopologyTestDriver. (generator/number-stations-to-image-topology input-topic "resources/output4.png") (config))]
+        (write-inputs driver factory input-topic input-messages))))
   )
