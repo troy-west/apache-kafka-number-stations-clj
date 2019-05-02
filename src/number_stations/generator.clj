@@ -353,6 +353,8 @@
 
 (defn number-stations-to-image-stream
   [^KStream stream]
+  (instrument-stream stream :number-stations)
+
   (let [[primer-stream number-stream] (.branch stream
                                                (into-array Predicate
                                                            [(reify Predicate
