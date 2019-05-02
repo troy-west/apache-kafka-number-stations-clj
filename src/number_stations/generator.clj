@@ -37,7 +37,7 @@
   [input-stream stream-name]
   (.foreach input-stream (reify ForeachAction
                            (apply [_ k v]
-                             (print (format "%-40s => [key=%s, value=%s]" stream-name k v) "\n\n"))))
+                             (println (format "%-40s => [key=%s, value=%s]" stream-name k v)))))
   input-stream)
 
 (defn pixel-seq [buffered-img]
