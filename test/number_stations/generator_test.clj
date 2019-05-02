@@ -57,9 +57,9 @@
                                                (StringSerializer.)
                                                (->JsonSerializer))
         builder        (StreamsBuilder.)
-        input-messages [{:name "E-test-english" :numbers ["three" "two" "one"]}
-                        {:name "G-test-german" :numbers ["eins" "null" "null"]}
-                        {:name "X-test-other" :numbers [1 2 3]}]]
+        input-messages [{:time 0 :name "E-test-english" :numbers ["three" "two" "one"]}
+                        {:time 1 :name "G-test-german" :numbers ["eins" "null" "null"]}
+                        {:time 2 :name "X-test-other" :numbers [1 2 3]}]]
 
     (with-open [driver (TopologyTestDriver. (generator/translate-numbers-topology input-topic output-topic) (config))]
       (write-inputs driver factory input-topic input-messages)

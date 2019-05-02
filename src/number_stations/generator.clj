@@ -13,6 +13,27 @@
            [org.apache.kafka.streams.kstream Aggregator Consumed ForeachAction Initializer KeyValueMapper KStream Merger Predicate SessionWindows TimeWindows UnlimitedWindows ValueMapper]
            org.apache.kafka.streams.processor.TimestampExtractor))
 
+(defn topology
+  ([input-topic stream-operations]
+   (topology input-topic stream-operations nil))
+  ([input-topic stream-operations output-topic]
+   (let [extractor (reify TimestampExtractor
+                     (extract [_ record _]
+                       (:time (.value record))))]
+     (topology input-topic stream-operations output-topic (Consumed/with extractor))))
+  ([input-topic stream-operations output-topic consumed]
+   (let [builder   (StreamsBuilder.)
+         events    (if consumed
+                     (.stream builder ^String input-topic consumed)
+                     (.stream builder ^String input-topic))]
+
+     (stream-operations events)
+
+     (when (seq output-topic)
+       (.to (stream-operations events) output-topic))
+
+     (.build builder))))
+
 (defn pixel-seq [buffered-img]
   (let [raster (.getData buffered-img)
         width  (.getWidth raster)
@@ -166,7 +187,7 @@
 (def pt10s-window (TimeWindows/of (Duration/ofSeconds 10)))
 
 (defn correlate-rgb
-  [^KStream stream output-topic]
+  [^KStream stream]
   (-> (.groupByKey stream)
       (.windowedBy ^TimeWindows pt10s-window)
       (.aggregate (reify Initializer
@@ -180,35 +201,29 @@
                    (= (count colour-components) 3))))
       (.map (reify KeyValueMapper
               (apply [_ k v]
-                (KeyValue. (:name (first v)) (sort-by :time v)))))
-      (.to output-topic)))
+                (KeyValue. (:name (first v)) (sort-by :time v)))))))
+
+(defn translate-numbers-stream
+  [^KStream stream]
+  (-> stream
+      (.mapValues (reify ValueMapper
+                    (apply [_ message]
+                      (assoc message
+                             :colour-component
+                             (-> message
+                                 translate-numbers
+                                 ints-to-colour-component)))))
+      (.filter (reify Predicate
+                 (test [_ _ message]
+                   (boolean (:colour-component message)))))))
 
 (defn translate-numbers-topology
   [input-topic output-topic]
-  (let [builder (StreamsBuilder.)]
-    (-> (.stream builder input-topic)
-        (.mapValues (reify ValueMapper
-                      (apply [_ message]
-                        (assoc message
-                               :colour-component
-                               (-> message
-                                   translate-numbers
-                                   ints-to-colour-component)))))
-        (.filter (reify Predicate
-                   (test [_ _ message]
-                     (boolean (:colour-component message)))))
-        (.to output-topic))
-    (.build builder)))
+  (topology input-topic translate-numbers-stream output-topic))
 
 (defn correlate-rgb-topology
   [input-topic output-topic]
-  (let [builder   (StreamsBuilder.)
-        extractor (reify TimestampExtractor
-                    (extract [_ record _]
-                      (:time (.value record))))
-        events    (.stream builder ^String input-topic (Consumed/with extractor))]
-    (correlate-rgb events output-topic)
-    (.build builder)))
+  (topology input-topic correlate-rgb output-topic))
 
 (def pt1m-session-window (SessionWindows/with (.toMillis TimeUnit/MINUTES 1)))
 
@@ -257,24 +272,7 @@
                              (assoc (select-keys leader [:time :name :latitude :longitude])
                                     :pixels pixels))))))))
 
-(defn topology
-  ([input-topic stream-operations]
-   (topology input-topic stream-operations nil))
-  ([input-topic stream-operations output-topic]
-   (let [extractor (reify TimestampExtractor
-                     (extract [_ record _]
-                       (:time (.value record))))]
-     (topology input-topic stream-operations output-topic (Consumed/with extractor))))
-  ([input-topic stream-operations output-topic consumed]
-   (let [builder   (StreamsBuilder.)
-         events    (.stream builder ^String input-topic consumed)]
 
-     (stream-operations events)
-
-     (when (seq output-topic)
-       (.to (stream-operations events) output-topic))
-
-     (.build builder))))
 
 (defn group-by-row-topology
   [input-topic output-topic]
