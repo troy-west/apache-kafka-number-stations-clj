@@ -204,16 +204,19 @@
                                    enrich-stream
                                    (add-duplication 0.01)
                                    (map :numbers))
-                              (+ (.getWidth bi) 0)))
+                              (+ (.getWidth bi) 0))))
 
-  (def rgb-window-duration (.size pt10s-window))
+(def rgb-window-duration (* 2 (.size pt10s-window)))
 
-  (defn pad-to-three
-    [components]
-    (into (vec (repeat (- 3 (count components)) 0))
-          components))
+(defn pad-to-three
+  [components]
+  (into (vec (repeat (- 3 (count components)) 0))
+        components))
 
-  (let [width (.getWidth bi)]
+(defn generate-messages
+  [image]
+  (let [pixels (pixel-seq image)
+        width  (.getWidth bi)]
     (->> (map #(take 3 %) pixels)
          (partition width)
          (mapcat (fn [j row]
@@ -225,27 +228,27 @@
                                      [{:time time :name "E-123" :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str b)))})}])
 
                                    row))))
-                 (range))
-         (take 10)))
+                 (range)))))
 
-  (defn translate-numbers-stream-operations
-    [^KStream stream]
-    (-> stream
-        (.filter (reify Predicate
-                   (test [_ _ message]
-                     (boolean (:numbers message)))))
-        (instrument-stream :translate-numbers/filter1)
-        (.mapValues (reify ValueMapper
-                      (apply [_ message]
-                        (-> message
-                            (assoc :colour-component
-                                   (ints-to-colour-component (translate-to-numbers message)))
-                            (dissoc :numbers)))))
-        (instrument-stream :translate-numbers/mapValues)
-        (.filter (reify Predicate
-                   (test [_ _ message]
-                     (boolean (:colour-component message)))))
-        (instrument-stream :translate-numbers/filter2))))
+
+(defn translate-numbers-stream-operations
+  [^KStream stream]
+  (-> stream
+      (.filter (reify Predicate
+                 (test [_ _ message]
+                   (boolean (:numbers message)))))
+      (instrument-stream :translate-numbers/filter1)
+      (.mapValues (reify ValueMapper
+                    (apply [_ message]
+                      (-> message
+                          (assoc :colour-component
+                                 (ints-to-colour-component (translate-to-numbers message)))
+                          (dissoc :numbers)))))
+      (instrument-stream :translate-numbers/mapValues)
+      (.filter (reify Predicate
+                 (test [_ _ message]
+                   (boolean (:colour-component message)))))
+      (instrument-stream :translate-numbers/filter2)))
 
 (defn correlate-rgb-stream-operations
   [^KStream stream]
