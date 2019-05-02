@@ -192,7 +192,26 @@
 
 (def pt10s-window (TimeWindows/of (Duration/ofSeconds 10)))
 
-(defn correlate-rgb
+(defn translate-numbers-stream-operations
+  [^KStream stream]
+  (-> stream
+      (.filter (reify Predicate
+                 (test [_ _ message]
+                   (boolean (:numbers message)))))
+      (instrument-stream :translate-numbers/filter1)
+      (.mapValues (reify ValueMapper
+                    (apply [_ message]
+                      (-> message
+                          (assoc :colour-component
+                                 (ints-to-colour-component (translate-numbers message)))
+                          (dissoc :numbers)))))
+      (instrument-stream :translate-numbers/mapValues)
+      (.filter (reify Predicate
+                 (test [_ _ message]
+                   (boolean (:colour-component message)))))
+      (instrument-stream :translate-numbers/filter2)))
+
+(defn correlate-rgb-stream-operations
   [^KStream stream]
   (-> (.groupByKey stream)
       (.windowedBy ^TimeWindows pt10s-window)
@@ -207,39 +226,30 @@
                    (= (count colour-components) 3))))
       (.map (reify KeyValueMapper
               (apply [_ k v]
-                (KeyValue. (:name (first v)) (sort-by :time v)))))))
-
-(defn translate-numbers-stream
-  [^KStream stream]
-  (-> stream
-      (.mapValues (reify ValueMapper
-                    (apply [_ message]
-                      (assoc message
-                             :colour-component
-                             (-> message
-                                 translate-numbers
-                                 ints-to-colour-component)))))
-      (.filter (reify Predicate
-                 (test [_ _ message]
-                   (boolean (:colour-component message)))))))
+                (let [[leader :as components] (sort-by :time v)]
+                  (KeyValue. (:name leader) (-> leader
+                                                (assoc :rgb (mapv :colour-component components))
+                                                (dissoc :colour-component)))))))))
 
 (defn translate-numbers-topology
   [input-topic output-topic]
-  (topology input-topic translate-numbers-stream output-topic))
+  (topology input-topic translate-numbers-stream-operations output-topic))
 
 (defn correlate-rgb-topology
   [input-topic output-topic]
-  (topology input-topic correlate-rgb output-topic))
+  (topology input-topic correlate-rgb-stream-operations output-topic))
 
 (def pt1m-session-window (SessionWindows/with (.toMillis TimeUnit/MINUTES 1)))
 
-(defn group-by-row-stream
+(defn group-by-row-stream-operations
   "Stream key is :name of message (radio station name)"
   [^KStream stream]
   ;; TODO this is getting quite complicated, so don't make it more complex, but see if it can be simpler.
   ;; simpler in a meaningful way, which can be taught
   ;; identity "key is :name" constraint. Is this enforced? What happens if we key it incorrectly?
-  (-> (.groupByKey stream)
+  (-> stream
+      (instrument-stream :group-by-row/pre-aggregate)
+      (.groupByKey)
       (.windowedBy ^SessionWindows pt1m-session-window)
       (.aggregate (reify Initializer
                     (apply [_] {:received-primer   false
