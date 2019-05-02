@@ -1,7 +1,8 @@
 (ns number-stations.generator
   (:require [clojure.data.json :as json]
             [clojure.java.io :as io]
-            [java-time :as time])
+            [java-time :as time]
+            [clojure.string :as str])
   (:import java.awt.Color
            java.awt.image.BufferedImage
            java.time.Duration
@@ -107,42 +108,6 @@
                  [message]))
              s2))))
 
-(comment
-
-  (def bi (ImageIO/read (io/resource "source.png")))
-
-  ;; a seq of pixel tuples [r g b a]
-  (def pixels (pixel-seq bi))
-
-
-  (.getWidth bi)
-  (.getHeight bi)
-
-
-  ;; write the pixels back exactly as we got them
-  (write-output (render-image pixels (.getWidth bi)))
-
-  ;; if we don't know the exact width the image will be skewed
-  (write-output (render-image pixels (+ (.getWidth bi) 5)))
-
-  (write-output (render-image (->> pixels
-                                   enrich-stream
-                                   cycle-numbers
-                                   (map :numbers))
-                              (+ (.getWidth bi) 0)))
-
-  (write-output (render-image (->> pixels
-                                   enrich-stream
-                                   (add-duplication 0.025)
-                                   dedupe
-                                   (map :numbers))
-                              (+ (.getWidth bi) 0)))
-
-  (write-output (render-image (->> pixels
-                                   enrich-stream
-                                   (add-duplication 0.01)
-                                   (map :numbers))
-                              (+ (.getWidth bi) 0))))
 
 (deftype JsonSerializer []
   Serializer
@@ -181,14 +146,71 @@
 
                     \M (index-numbers ["-----" ".----" "..---" "...--" "....-" "....." "-...." "--..." "---.." "----."])})
 
-(defn translate-numbers
+(defn invert
+  [number-lookup]
+  (into {} (for [[letter words-numbers] number-lookup]
+             [letter (into {} (for [[word number] words-numbers]
+                                [number word]))])))
+
+(def word-lookup
+  (invert number-lookup))
+
+(defn translate-to-numbers
   [{:keys [numbers name]}]
   (mapv #(get-in number-lookup [(first name) %]) numbers))
+
+(defn translate-to-words
+  [{:keys [numbers name]}]
+  (mapv #(get-in word-lookup [(first name) %]) numbers))
 
 (defn ints-to-colour-component
   [ints]
   (when (and (seq ints) (every? int? ints))
     (Integer/parseInt (apply str ints))))
+
+(comment
+
+  (def bi (ImageIO/read (io/resource "source.png")))
+
+  ;; a seq of pixel tuples [r g b a]
+  (def pixels (pixel-seq bi))
+
+
+  (.getWidth bi)
+  (.getHeight bi)
+
+
+  ;; write the pixels back exactly as we got them
+  (write-output (render-image pixels (.getWidth bi)))
+
+  ;; if we don't know the exact width the image will be skewed
+  (write-output (render-image pixels (+ (.getWidth bi) 5)))
+
+  (write-output (render-image (->> pixels
+                                   enrich-stream
+                                   cycle-numbers
+                                   (map :numbers))
+                              (+ (.getWidth bi) 0)))
+
+  (write-output (render-image (->> pixels
+                                   enrich-stream
+                                   (add-duplication 0.025)
+                                   dedupe
+                                   (map :numbers))
+                              (+ (.getWidth bi) 0)))
+
+  (write-output (render-image (->> pixels
+                                   enrich-stream
+                                   (add-duplication 0.01)
+                                   (map :numbers))
+                              (+ (.getWidth bi) 0)))
+
+  (->> (map #(take 3 %) pixels)
+       (mapcat (fn [[r g b]]
+                 [{:name "E-123" :numbers (translate-to-words {:name "E-123" :numbers (mapv #(Long/parseLong (str %)) (str r))})}]
+                 [{:name "E-123" :numbers (translate-to-words {:name "E-123" :numbers (mapv #(Long/parseLong (str %)) (str g))})}]
+                 [{:name "E-123" :numbers (translate-to-words {:name "E-123" :numbers (mapv #(Long/parseLong (str %)) (str b))})}]))
+       (take 10)))
 
 (def pt10s-window (TimeWindows/of (Duration/ofSeconds 10)))
 
@@ -203,7 +225,7 @@
                     (apply [_ message]
                       (-> message
                           (assoc :colour-component
-                                 (ints-to-colour-component (translate-numbers message)))
+                                 (ints-to-colour-component (translate-to-numbers message)))
                           (dissoc :numbers)))))
       (instrument-stream :translate-numbers/mapValues)
       (.filter (reify Predicate
