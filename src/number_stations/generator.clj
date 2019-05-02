@@ -352,7 +352,7 @@
   (topology input-topic rows-to-image-stream-operations))
 
 (defn number-stations-to-image-stream
-  [^KStream stream]
+  [output-image-path ^KStream stream]
   (instrument-stream stream :number-stations)
 
   (let [[primer-stream number-stream] (.branch stream
@@ -376,11 +376,11 @@
           (instrument-stream :group-by-row)
           group-by-rows-stream-operations
           (instrument-stream :group-by-rows)
-          (rows-to-image-stream "resources/output2.png")))))
+          (rows-to-image-stream output-image-path)))))
 
 (defn number-stations-to-image-topology
-  [input-topic]
-  (topology input-topic number-stations-to-image-stream))
+  [input-topic output-image-path]
+  (topology input-topic (partial number-stations-to-image-stream output-image-path)))
 
 
 ;; TODO -group by special id of last pixel in row, this gives an image.

@@ -244,6 +244,6 @@
                         {:time 1 :name "E-123" :numbers ["one" "zero" "zero"] :latitude 37 :longitude 144}
                         {:time 1 :name "E-123" :numbers ["one" "zero" "zero"] :latitude 37 :longitude 144}]]
 
-    (with-open [driver (TopologyTestDriver. (generator/number-stations-to-image-topology input-topic) (config))]
+    (with-open [driver (TopologyTestDriver. (generator/number-stations-to-image-topology input-topic "resources/output3.png") (config))]
       (write-inputs driver factory input-topic input-messages)))
   )
