@@ -4,13 +4,13 @@
             [java-time :as time])
   (:import java.awt.Color
            java.awt.image.BufferedImage
-           [java.time Duration Instant]
+           java.time.Duration
            java.util.concurrent.TimeUnit
            java.util.Properties
            javax.imageio.ImageIO
            [org.apache.kafka.common.serialization Deserializer Serde Serializer]
            [org.apache.kafka.streams KeyValue StreamsBuilder]
-           [org.apache.kafka.streams.kstream Aggregator Consumed Initializer KeyValueMapper KStream Merger Predicate SessionWindows TimeWindows UnlimitedWindows ValueMapper]
+           [org.apache.kafka.streams.kstream Aggregator Consumed ForeachAction Initializer KeyValueMapper KStream Merger Predicate SessionWindows TimeWindows UnlimitedWindows ValueMapper]
            org.apache.kafka.streams.processor.TimestampExtractor))
 
 (defn pixel-seq [buffered-img]
@@ -26,7 +26,7 @@
                          .getRaster
                          .getDataBuffer
                          .getData)
-        src-array    (int-array (map (fn [[r g b a]] (.getRGB (Color. r g b a))) pixels))]
+        src-array    (int-array (map (fn [[r g b a]] (.getRGB (Color. r g b (or a 255)))) pixels))]
     (System/arraycopy src-array 0 dst-array 0 (alength src-array))
     buffered-img))
 
@@ -258,6 +258,8 @@
                                     :pixels pixels))))))))
 
 (defn topology
+  ([input-topic stream-operations]
+   (topology input-topic stream-operations nil))
   ([input-topic stream-operations output-topic]
    (let [extractor (reify TimestampExtractor
                      (extract [_ record _]
@@ -269,9 +271,10 @@
 
      (stream-operations events)
 
-     (.to (stream-operations events) output-topic)
+     (when (seq output-topic)
+       (.to (stream-operations events) output-topic))
 
-     (.build  builder))))
+     (.build builder))))
 
 (defn group-by-row-topology
   [input-topic output-topic]
@@ -298,11 +301,35 @@
       (.toStream)
       (.map (reify KeyValueMapper
               (apply [_ k rows]
-                (KeyValue. "0" (mapv second (sort-by (comp #(Long/parseLong %) name first) rows))))))))
+                (let [rows (mapv second (sort-by (comp #(Long/parseLong %) name first) rows))]
+                  (KeyValue. "0" {:time (:time (first rows))
+                                  :rows rows})))))))
 
 (defn group-by-rows-topology
   [input-topic output-topic]
   (topology input-topic group-by-rows output-topic))
+
+(defn rows-to-image
+  [stream]
+  (.foreach stream (reify ForeachAction
+                     (apply [_ _ rows]
+                       (let [pixel-rows (->> rows
+                                             :rows
+                                             (map :pixels)
+                                             (mapv (fn [pixels]
+                                                     (mapv :rgb pixels))))
+                             width      (apply max (map count pixel-rows))]
+                         (-> (render-image (mapcat (fn [pixels]
+                                                     ;; pad pixels to same length
+                                                     (vec (concat pixels (repeat (- (count pixels) width) nil))))
+                                                   pixel-rows)
+                                           width)
+                             (write-output)))))))
+
+(defn rows-to-image-topology
+  [input-topic]
+  (topology input-topic rows-to-image))
+
 
 
 ;; TODO -group by special id of last pixel in row, this gives an image.

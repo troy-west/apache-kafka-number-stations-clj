@@ -13,12 +13,14 @@
            org.apache.kafka.streams.kstream.SessionWindows
            org.apache.kafka.streams.test.ConsumerRecordFactory))
 
-(def config (let [props (Properties.)]
-              (.putAll props {"application.id"      "adsasd1234"
-                              "bootstrap.servers"   "dummy:1234"
-                              "default.key.serde"   "org.apache.kafka.common.serialization.Serdes$StringSerde"
-                              "default.value.serde" "number_stations.generator.JsonSerde"})
-              props))
+(defn config
+  []
+  (let [props (Properties.)]
+    (.putAll props {"application.id"      (str (rand-int 1000000))
+                    "bootstrap.servers"   "dummy:1234"
+                    "default.key.serde"   "org.apache.kafka.common.serialization.Serdes$StringSerde"
+                    "default.value.serde" "number_stations.generator.JsonSerde"})
+    props))
 
 (defn read-output
   [driver topic]
@@ -40,9 +42,11 @@
      (.value ^ProducerRecord record)]))
 
 (defn write-inputs
-  [driver factory topic messages]
-  (doseq [message messages]
-    (.pipeInput driver (.create factory topic (:name message) message))))
+  ([driver factory topic messages]
+   (write-inputs driver factory topic messages :name))
+  ([driver factory topic messages key-fn]
+   (doseq [message messages]
+     (.pipeInput driver (.create factory topic (key-fn message) message)))))
 
 (deftest translate-numbers-test
 
@@ -57,7 +61,7 @@
                         {:name "G-test-german" :numbers ["eins" "null" "null"]}
                         {:name "X-test-other" :numbers [1 2 3]}]]
 
-    (with-open [driver (TopologyTestDriver. (generator/translate-numbers-topology input-topic output-topic) config)]
+    (with-open [driver (TopologyTestDriver. (generator/translate-numbers-topology input-topic output-topic) (config))]
       (write-inputs driver factory input-topic input-messages)
 
       (is (= 321 (:colour-component (read-output ^TopologyTestDriver driver output-topic))))
@@ -78,7 +82,7 @@
                         {:time 11000 :name "name"}
                         {:time 13000 :name "name"}]]
 
-    (with-open [driver (TopologyTestDriver. (generator/correlate-rgb-topology input-topic output-topic) config)]
+    (with-open [driver (TopologyTestDriver. (generator/correlate-rgb-topology input-topic output-topic) (config))]
       (write-inputs driver factory input-topic input-messages)
 
       (is (= [{:time 0, :name "name"}
@@ -109,7 +113,7 @@
                         {:time 1160000 :name "name" :number-of-messages 1 :latitude 37 :longitude 144}
                         {:time 1160010 :name "name" :rgb [10 11 12] :latitude 37 :longitude 144}]]
 
-    (with-open [driver (TopologyTestDriver. (generator/group-by-row-topology input-topic output-topic) config)]
+    (with-open [driver (TopologyTestDriver. (generator/group-by-row-topology input-topic output-topic) (config))]
       (write-inputs driver factory input-topic input-messages)
 
       (is (= ["name" {:time      1
@@ -142,7 +146,7 @@
       (is (= nil
              (read-output ^TopologyTestDriver driver output-topic))))))
 
-(deftest group-by-rows
+(deftest group-by-rows-test
 
   (let [input-topic    "rgb-row-stream"
         output-topic   "rgb-rows-stream"
@@ -176,32 +180,59 @@
                          :longitude 144
                          :pixels    [{:time 1160010 :name "name" :rgb [10 11 12] :latitude 36 :longitude 144}]}]]
 
-    (with-open [driver (TopologyTestDriver. (generator/group-by-rows-topology input-topic output-topic) config)]
+    (with-open [driver (TopologyTestDriver. (generator/group-by-rows-topology input-topic output-topic) (config))]
       (write-inputs driver factory input-topic input-messages)
 
-      (is (= ["0" [{:time      1
-                    :name      "name"
-                    :latitude  33
-                    :longitude 144
-                    :pixels
-                    [{:time 1 :name "name" :rgb [1 2 3] :latitude 33 :longitude 144}
-                     {:time 2 :name "name" :rgb [4 5 6] :latitude 33 :longitude 144}
-                     {:time 3 :name "name" :rgb [7 8 9] :latitude 33 :longitude 144}]}]]
+      (is (= ["0" {:time 1
+                   :rows [{:time      1
+                           :name      "name"
+                           :latitude  33
+                           :longitude 144
+                           :pixels    [{:time 1 :name "name" :rgb [1 2 3] :latitude 33 :longitude 144}
+                                       {:time 2 :name "name" :rgb [4 5 6] :latitude 33 :longitude 144}
+                                       {:time 3 :name "name" :rgb [7 8 9] :latitude 33 :longitude 144}]}]}]
              (read-key-value ^TopologyTestDriver driver output-topic)))
 
-      (is (= ["0" [{:time      1
-                    :name      "name"
-                    :latitude  33
-                    :longitude 144
-                    :pixels
-                    [{:time 1 :name "name" :rgb [1 2 3] :latitude 33 :longitude 144}
-                     {:time 2 :name "name" :rgb [4 5 6] :latitude 33 :longitude 144}
-                     {:time 3 :name "name" :rgb [7 8 9] :latitude 33 :longitude 144}]}
-                   {:time      60020
-                    :name      "name"
-                    :latitude  34
-                    :longitude 144
-                    :pixels
-                    [{:time 60020 :name "name" :rgb [10 11 12] :latitude  34 :longitude 144}
-                     {:time 60030 :name "name" :rgb [10 11 13] :latitude  34 :longitude 144}]}]]
+      (is (= ["0" {:time 1
+                   :rows [{:time      1
+                           :name      "name"
+                           :latitude  33
+                           :longitude 144
+                           :pixels    [{:time 1 :name "name" :rgb [1 2 3] :latitude 33 :longitude 144}
+                                       {:time 2 :name "name" :rgb [4 5 6] :latitude 33 :longitude 144}
+                                       {:time 3 :name "name" :rgb [7 8 9] :latitude 33 :longitude 144}]}
+                          {:time      60020
+                           :name      "name"
+                           :latitude  34
+                           :longitude 144
+                           :pixels    [{:time 60020 :name "name" :rgb [10 11 12] :latitude  34 :longitude 144}
+                                       {:time 60030 :name "name" :rgb [10 11 13] :latitude  34 :longitude 144}]}]}]
+             (read-key-value ^TopologyTestDriver driver output-topic))))))
+
+(deftest stream-rows-to-image-test
+
+  (let [input-topic    "rgb-row-stream"
+        output-topic   "rgb-rows-stream"
+        factory        (ConsumerRecordFactory. input-topic
+                                               (StringSerializer.)
+                                               (->JsonSerializer))
+        input-messages [{:time 1
+                         :rows [{:time      1
+                                 :name      "name"
+                                 :latitude  33
+                                 :longitude 144
+                                 :pixels    [{:time 1 :name "name" :rgb [255 2 3] :latitude 33 :longitude 144}
+                                             {:time 2 :name "name" :rgb [4 5 6] :latitude 33 :longitude 144}
+                                             {:time 3 :name "name" :rgb [7 8 9] :latitude 33 :longitude 144}]}
+                                {:time      60020
+                                 :name      "name"
+                                 :latitude  34
+                                 :longitude 144
+                                 :pixels    [{:time 60020 :name "name" :rgb [10 11 12] :latitude  34 :longitude 144}
+                                             {:time 60030 :name "name" :rgb [10 11 13] :latitude  34 :longitude 144}]}]}]]
+
+    (with-open [driver (TopologyTestDriver. (generator/rows-to-image-topology input-topic) (config))]
+      (write-inputs driver factory input-topic input-messages (constantly "0"))
+
+      (is (= nil
              (read-key-value ^TopologyTestDriver driver output-topic))))))
