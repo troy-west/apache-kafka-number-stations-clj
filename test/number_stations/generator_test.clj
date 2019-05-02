@@ -141,3 +141,67 @@
              (read-output ^TopologyTestDriver driver output-topic)))
       (is (= nil
              (read-output ^TopologyTestDriver driver output-topic))))))
+
+(deftest group-by-rows
+
+  (let [input-topic    "rgb-row-stream"
+        output-topic   "rgb-rows-stream"
+        factory        (ConsumerRecordFactory. input-topic
+                                               (StringSerializer.)
+                                               (->JsonSerializer))
+        input-messages [{:time      1
+                         :name      "name"
+                         :latitude  33
+                         :longitude 144
+                         :pixels    [{:time 1 :name "name" :rgb [1 2 3] :latitude 33 :longitude 144}
+                                     {:time 2 :name "name" :rgb [4 5 6] :latitude 33 :longitude 144}
+                                     {:time 3 :name "name" :rgb [7 8 9] :latitude 33 :longitude 144}]}
+
+                        {:time      60020
+                         :name      "name"
+                         :latitude  34
+                         :longitude 144
+                         :pixels    [{:time 60020 :name "name" :rgb [10 11 12] :latitude 34 :longitude 144}
+                                     {:time 60030 :name "name" :rgb [10 11 13] :latitude 34 :longitude 144}]}
+
+                        {:time      1060010
+                         :name      "name"
+                         :latitude  35
+                         :longitude 144
+                         :pixels    [{:time 1060010 :name "name" :rgb [10 11 12] :latitude 35 :longitude 144}]}
+
+                        {:time      1160010
+                         :name      "name"
+                         :latitude  36
+                         :longitude 144
+                         :pixels    [{:time 1160010 :name "name" :rgb [10 11 12] :latitude 36 :longitude 144}]}]]
+
+    (with-open [driver (TopologyTestDriver. (generator/group-by-rows-topology input-topic output-topic) config)]
+      (write-inputs driver factory input-topic input-messages)
+
+      (is (= ["0" [{:time      1
+                    :name      "name"
+                    :latitude  33
+                    :longitude 144
+                    :pixels
+                    [{:time 1 :name "name" :rgb [1 2 3] :latitude 33 :longitude 144}
+                     {:time 2 :name "name" :rgb [4 5 6] :latitude 33 :longitude 144}
+                     {:time 3 :name "name" :rgb [7 8 9] :latitude 33 :longitude 144}]}]]
+             (read-key-value ^TopologyTestDriver driver output-topic)))
+
+      (is (= ["0" [{:time      1
+                    :name      "name"
+                    :latitude  33
+                    :longitude 144
+                    :pixels
+                    [{:time 1 :name "name" :rgb [1 2 3] :latitude 33 :longitude 144}
+                     {:time 2 :name "name" :rgb [4 5 6] :latitude 33 :longitude 144}
+                     {:time      3 :name      "name" :rgb       [7 8 9] :latitude  33 :longitude 144}]}
+                   {:time      60020
+                    :name      "name"
+                    :latitude  34
+                    :longitude 144
+                    :pixels
+                    [{:time      60020 :name      "name" :rgb       [10 11 12] :latitude  34 :longitude 144}
+                     {:time      60030 :name      "name" :rgb       [10 11 13] :latitude  34 :longitude 144}]}]]
+             (read-key-value ^TopologyTestDriver driver output-topic))))))

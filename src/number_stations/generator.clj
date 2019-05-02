@@ -4,13 +4,13 @@
             [java-time :as time])
   (:import java.awt.Color
            java.awt.image.BufferedImage
-           java.time.Duration
+           [java.time Duration Instant]
            java.util.concurrent.TimeUnit
            java.util.Properties
            javax.imageio.ImageIO
            [org.apache.kafka.common.serialization Deserializer Serde Serializer]
            [org.apache.kafka.streams KeyValue StreamsBuilder]
-           [org.apache.kafka.streams.kstream Aggregator Consumed Initializer KeyValueMapper KStream Merger Predicate SessionWindows TimeWindows ValueMapper]
+           [org.apache.kafka.streams.kstream Aggregator Consumed Initializer KeyValueMapper KStream Merger Predicate SessionWindows TimeWindows UnlimitedWindows ValueMapper]
            org.apache.kafka.streams.processor.TimestampExtractor))
 
 (defn pixel-seq [buffered-img]
@@ -214,7 +214,7 @@
 
 (defn group-by-row
   "Stream key is :name of message (radio station name)"
-  [^KStream stream output-topic]
+  [^KStream stream]
   ;; TODO this is getting quite complicated, so don't make it more complex, but see if it can be simpler.
   ;; simpler in a meaningful way, which can be taught
   ;; identity "key is :name" constraint. Is this enforced? What happens if we key it incorrectly?
@@ -255,20 +255,54 @@
                       leader           (first pixels)]
                   (KeyValue. (:name leader)
                              (assoc (select-keys leader [:time :name :latitude :longitude])
-                                    :pixels pixels))))))
-      (.to output-topic)))
+                                    :pixels pixels))))))))
+
+(defn topology
+  ([input-topic stream-operations output-topic]
+   (let [extractor (reify TimestampExtractor
+                     (extract [_ record _]
+                       (:time (.value record))))]
+     (topology input-topic stream-operations output-topic (Consumed/with extractor))))
+  ([input-topic stream-operations output-topic consumed]
+   (let [builder   (StreamsBuilder.)
+         events    (.stream builder ^String input-topic consumed)]
+
+     (stream-operations events)
+
+     (.to (stream-operations events) output-topic)
+
+     (.build  builder))))
 
 (defn group-by-row-topology
   [input-topic output-topic]
-  (let [builder   (StreamsBuilder.)
-        extractor (reify TimestampExtractor
-                    (extract [_ record _]
-                      (:time (.value record))))
-        events    (.stream builder ^String input-topic (Consumed/with extractor))]
-    (group-by-row events output-topic)
-    (.build builder)))
+  (topology input-topic group-by-row output-topic))
 
+(def unlimited-window (UnlimitedWindows/of))
 
+(defn group-by-rows
+  "Stream key is :name of message (radio station name)"
+  [stream]
+  ;; TODO this is getting quite complicated, so don't make it more complex, but see if it can be simpler.
+  ;; simpler in a meaningful way, which can be taught
+  ;; identity "key is :name" constraint. Is this enforced? What happens if we key it incorrectly?
+  (-> (.groupBy stream ^KeyValueMapper (reify KeyValueMapper
+                                         (apply [_ k v]
+                                           "0")))
+      (.windowedBy ^UnlimitedWindows unlimited-window)
+      (.aggregate (reify Initializer
+                    (apply [_] {}))
+                  (reify Aggregator
+                    (apply [_ _ message agg]
+                      ;; NOTE: agg could already have been serialized!
+                      (assoc agg (str (:latitude message)) message))))
+      (.toStream)
+      (.map (reify KeyValueMapper
+              (apply [_ k rows]
+                (KeyValue. "0" (mapv second (sort-by (comp #(Long/parseLong %) name first) rows))))))))
+
+(defn group-by-rows-topology
+  [input-topic output-topic]
+  (topology input-topic group-by-rows output-topic))
 
 
 ;; TODO -group by special id of last pixel in row, this gives an image.
