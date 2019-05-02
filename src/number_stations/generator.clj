@@ -133,10 +133,7 @@
                                    enrich-stream
                                    (add-duplication 0.01)
                                    (map :numbers))
-                              (+ (.getWidth bi) 0)))
-
-
-  )
+                              (+ (.getWidth bi) 0))))
 
 (deftype JsonSerializer []
   Serializer
@@ -227,7 +224,7 @@
 
 (def pt1m-session-window (SessionWindows/with (.toMillis TimeUnit/MINUTES 1)))
 
-(defn group-by-row
+(defn group-by-row-stream
   "Stream key is :name of message (radio station name)"
   [^KStream stream]
   ;; TODO this is getting quite complicated, so don't make it more complex, but see if it can be simpler.
@@ -272,17 +269,15 @@
                              (assoc (select-keys leader [:time :name :latitude :longitude])
                                     :pixels pixels))))))))
 
-
-
 (defn group-by-row-topology
   [input-topic output-topic]
-  (topology input-topic group-by-row output-topic))
+  (topology input-topic group-by-row-stream output-topic))
 
 (def unlimited-window (UnlimitedWindows/of))
 
-(defn group-by-rows
+(defn group-by-rows-stream
   "Stream key is :name of message (radio station name)"
-  [stream]
+  [^KStream stream]
   ;; TODO this is getting quite complicated, so don't make it more complex, but see if it can be simpler.
   ;; simpler in a meaningful way, which can be taught
   ;; identity "key is :name" constraint. Is this enforced? What happens if we key it incorrectly?
@@ -305,7 +300,7 @@
 
 (defn group-by-rows-topology
   [input-topic output-topic]
-  (topology input-topic group-by-rows output-topic))
+  (topology input-topic group-by-rows-stream output-topic))
 
 (defn rows-to-image
   [stream]
@@ -327,8 +322,6 @@
 (defn rows-to-image-topology
   [input-topic]
   (topology input-topic rows-to-image))
-
-
 
 ;; TODO -group by special id of last pixel in row, this gives an image.
 ;; materialize to store via latitude -- overwrite
