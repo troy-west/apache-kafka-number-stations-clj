@@ -163,10 +163,6 @@
   (when (and (seq ints) (every? int? ints))
     (Integer/parseInt (apply str ints))))
 
-
-
-
-
 (def pt10s-window (TimeWindows/of (Duration/ofSeconds 10)))
 
 (defn correlate-rgb
@@ -218,6 +214,7 @@
 
 (defn group-by-session
   [^KStream stream output-topic]
+  ;; TODO this is getting quite complicated, so don't make it more complex, but see if it can be simpler.
   (-> (.groupByKey stream)
       (.windowedBy ^SessionWindows pt1m-session-window)
       (.aggregate (reify Initializer
@@ -241,14 +238,71 @@
       (.toStream)
       (.map (reify KeyValueMapper
               (apply [_ k v]
-                (KeyValue. (:name (first v)) v))))
+                (KeyValue. (:name (first v)) (update v :pixels #(sort-by :time %))))))
       (.filter (reify Predicate
                  (test [_ k v]
                    (boolean (and v
                                  (:received-primer v)
+                                 (< 0 (count (:pixels v)))
                                  (= (:expected-messages v)
                                     (count (:pixels v))))))))
+      (.map (reify KeyValueMapper
+              (apply [_ k v]
+                (let [{:keys [pixels]} v
+                      leader           (first pixels)]
+                  (KeyValue. (:name leader)
+                             (assoc (select-keys leader [:time :name :latitude :longitude])
+                                    :pixels pixels))))))
       (.to output-topic)))
+
+;; data stereotypes -- must be JSON encoded when going onto kafka,
+;; so use primitive types which are serializable
+
+;; TOPIC "number-stations"
+(def number-station-message-numbers-stereotype
+  {:time       0         ;; epoch timestamp (long)
+   :name       "E-123"   ;; radio station name
+   :session-id "xyz-123" ;; session-id (but randomized -- only last pixel in row has a valid session id)
+   :latitude   37
+   :longitude  144
+   :numbers    ["one" "two" "three"]})
+
+;; TOPIC "number-stations"
+(def number-station-message-primer-stereotype
+  {:time               0 ;; epoch timestamp (long)
+   :name               "E-123" ;; radio station name
+   :latitude           37
+   :longitude          144
+   :number-of-messages 100 ;; number of pixels
+   })
+
+;; TOPIC "translate-numbers"
+(def translated-numbers-message-stereotype
+  {:time             0
+   :name             "E-123" ;; radio station name
+   :latitude         37
+   :longitude        144
+   :colour-component 123})
+
+;; TOPIC "rgb-stream"
+(def rgb-stereotype
+  {:time      0
+   :name      "E-123"
+   :latitude  37
+   :longitude 144
+   :rgb       [123 0 0]})
+
+;; TOPIC "rgb-row-stream"
+(def rgb-row-stereotype
+  {:time      0
+   :name      "E-123"
+   :latitude  37
+   :longitude 144
+   :pixels    [{:time      0
+                :name      "E-123"
+                :latitude  37
+                :longitude 144
+                :rgb       [123 0 0]}]})
 
 (defn group-by-session-topology
   [input-topic output-topic]
@@ -263,4 +317,4 @@
 ;; TODO -group by special id of last pixel in row, this gives an image.
 ;; materialize to store via latitude -- overwrite
 ;; going back, insert dedup into topologies -- pixel repetitition
-;; insert join into topologies -- (colour cycling)
+;; insert join into topologies -- (colour cycling) (join with colour ktable store)
