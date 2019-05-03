@@ -12,4 +12,7 @@
                  [metosin/reitit-core "0.3.1"]
                  [metosin/reitit-ring "0.3.1"]
                  [hiccup "1.0.5"]]
+
+  :main number-stations.system
+
   :repl-options {:init-ns number-stations.core})

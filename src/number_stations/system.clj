@@ -14,7 +14,8 @@
            [org.apache.kafka.streams StreamsBuilder TopologyTestDriver]
            org.apache.kafka.streams.kstream.Consumed
            org.apache.kafka.streams.processor.TimestampExtractor
-           org.apache.kafka.streams.test.ConsumerRecordFactory))
+           org.apache.kafka.streams.test.ConsumerRecordFactory)
+  (:gen-class))
 
 #_ (defn wrap-dir-index [handler]
   (fn [req]
@@ -24,7 +25,9 @@
 (defmethod ig/init-key :httpkit/server
   [_ {:keys [ring/app :httpkit/config]}]
   {:pre [(:port config)]}
-  (httpkit/run-server app config))
+  (let [server (httpkit/run-server app config)]
+    (println "Serving on :port" (:port config))
+    server))
 
 (defmethod ig/halt-key! :httpkit/server
   [_ server]
@@ -140,4 +143,8 @@
 (defn restart
   []
   (stop)
+  (start))
+
+(defn -main
+  [& args]
   (start))
