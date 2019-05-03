@@ -255,7 +255,21 @@
                                                (->JsonSerializer))
         input-messages (generator/generate-messages generator/small-image)]
     (binding [generator/*instrument*   false
-              generator/*instrument-stream-name* #{:primer-stream :group-by-row}]
+              generator/*instrument-stream-name* #{#_:group-by-row/pre-aggregate
+                                                   #_:group-by-row/aggregate
+                                                   #_:group-by-row/filter1
+                                                   #_:group-by-row/map1
+                                                   #_:group-by-row/filter2
+                                                   #_:group-by-row}]
       (with-open [driver (TopologyTestDriver. (generator/number-stations-to-image-topology input-topic "resources/output4.png") (config))]
-        (write-inputs driver factory input-topic input-messages))))
+        (write-inputs driver factory input-topic input-messages)
+
+        (let [rows (->> (generator/fetch-image (.getWindowStore driver generator/pt10s-store)
+                                               (vec (for [i (range 1000)]
+                                                      (str "E-" i)))
+                                               0
+                                               2000000000)
+                        (map (fn [numbers]
+                               (filter seq (partition 3 (map :colour-component numbers))))))]
+          (generator/image rows "resources/output5.png")))))
   )

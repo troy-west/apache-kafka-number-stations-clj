@@ -1,8 +1,8 @@
 (ns number-stations.generator
-  (:require [clojure.data.json :as json]
+  (:require [clojure.core.protocols :as p]
+            [clojure.data.json :as json]
             [clojure.java.io :as io]
-            [java-time :as time]
-            [clojure.string :as str])
+            [java-time :as time])
   (:import java.awt.Color
            java.awt.image.BufferedImage
            java.time.Duration
@@ -10,9 +10,10 @@
            java.util.Properties
            javax.imageio.ImageIO
            [org.apache.kafka.common.serialization Deserializer Serde Serializer]
-           [org.apache.kafka.streams KeyValue StreamsBuilder]
-           [org.apache.kafka.streams.kstream Aggregator Consumed ForeachAction Initializer KeyValueMapper KStream Merger Predicate SessionWindows TimeWindows UnlimitedWindows ValueMapper]
-           org.apache.kafka.streams.processor.TimestampExtractor))
+           [org.apache.kafka.streams KafkaStreams KeyValue StreamsBuilder]
+           [org.apache.kafka.streams.kstream Aggregator Consumed ForeachAction Initializer KeyValueMapper KStream Materialized Merger Predicate SessionWindows TimeWindows UnlimitedWindows ValueMapper]
+           org.apache.kafka.streams.processor.TimestampExtractor
+           [org.apache.kafka.streams.state QueryableStoreTypes ReadOnlyWindowStore]))
 
 (defn topology
   ([input-topic stream-operations]
@@ -235,8 +236,8 @@
                            (mapcat (fn [i [r g b]]
                                      (let [time (+ row-time (* rgb-window-duration i))]
                                        [{:time time :name station-name :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str r)))})}
-                                        {:time time :name station-name :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str g)))})}
-                                        {:time time :name station-name :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str b)))})}]))
+                                        {:time (+ time 2500) :name station-name :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str g)))})}
+                                        {:time (+ time 5000) :name station-name :longitude 0 :latitude j :numbers (translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str b)))})}]))
                                    (range)
                                    row))))
                  (range)))))
@@ -245,6 +246,7 @@
 
 (defn translate-numbers-stream-operations
   [^KStream stream]
+  {:pre [stream]}
   (-> stream
       (.filter (reify Predicate
                  (test [_ _ message]
@@ -262,6 +264,8 @@
                    (boolean (:colour-component message)))))
       (instrument-stream :translate-numbers/filter2)))
 
+(def pt10s-store "components-pt10s-store")
+
 (defn correlate-rgb-stream-operations
   [^KStream stream]
   (-> (.groupByKey stream)
@@ -270,20 +274,22 @@
                     (apply [_] []))
                   (reify Aggregator
                     (apply [_ _ message colour-components]
-                      (conj colour-components message))))
+                      (conj colour-components message)))
+                  (Materialized/as ^String pt10s-store))
       (.toStream)
-      (instrument-stream :correlate-rgb/aggregate)
-      (.filter (reify Predicate
-                 (test [_ _ colour-components]
-                   (= (count colour-components) 3))))
-      (instrument-stream :correlate-rgb/filter)
-      (.map (reify KeyValueMapper
-              (apply [_ k v]
-                (let [[leader :as components] (sort-by :time v)]
-                  (KeyValue. (:name leader) (-> leader
-                                                (assoc :rgb (mapv :colour-component components))
-                                                (dissoc :colour-component)))))))
-      (instrument-stream :correlate-rgb/map)))
+      ;; (instrument-stream :correlate-rgb/aggregate)
+      ;; (.filter (reify Predicate
+      ;;            (test [_ _ colour-components]
+      ;;              (= (count colour-components) 3))))
+      ;; (instrument-stream :correlate-rgb/filter)
+      ;; (.map (reify KeyValueMapper
+      ;;         (apply [_ k v]
+      ;;           (let [[leader :as components] (sort-by :time v)]
+      ;;             (KeyValue. (:name leader) (-> leader
+      ;;                                           (assoc :rgb (mapv :colour-component components))
+      ;;                                           (dissoc :colour-component)))))))
+      ;; (instrument-stream :correlate-rgb/map)
+      ))
 
 (defn translate-numbers-topology
   [input-topic output-topic]
@@ -292,6 +298,31 @@
 (defn correlate-rgb-topology
   [input-topic output-topic]
   (topology input-topic correlate-rgb-stream-operations output-topic))
+
+(defn normalize
+  [^KeyValue kv]
+  (let [[key value] [(.key kv) (.value kv)]]
+    (map #(assoc % :time key) value)))
+
+(defn fetch
+  "Fetch metrics from a read-only window store"
+  [^ReadOnlyWindowStore store ^String metric-name ^long start ^long end]
+  (with-open [iterator (.fetch ^ReadOnlyWindowStore store metric-name start end)]
+    (reduce into [] (map normalize (iterator-seq iterator)))))
+
+(defn slice-radio-station
+  ([store name duration]
+   (let [now (System/currentTimeMillis)]
+     (slice-radio-station store name (- now (.toMillis ^Duration duration)) now)))
+  ([store metric-name start end]
+   (fetch store metric-name start end)))
+
+(defn slice-radio-stations
+  ([store radio-station-names duration]
+   (let [now (System/currentTimeMillis)]
+     (slice-radio-stations store radio-station-names (- now (.toMillis ^Duration duration)) now)))
+  ([store radio-station-names start end]
+   (reduce #(assoc %1 %2 (fetch store %2 start end)) {} radio-station-names)))
 
 (def pt1m-session-window (SessionWindows/with (.toMillis TimeUnit/MINUTES 1)))
 
@@ -303,7 +334,9 @@
   ;; identity "key is :name" constraint. Is this enforced? What happens if we key it incorrectly?
   (-> stream
       (instrument-stream :group-by-row/pre-aggregate)
-      (.groupByKey)
+      (.groupBy ^KeyValueMapper (reify KeyValueMapper
+                                  (apply [_ k v]
+                                    (:name v))))
       (.windowedBy ^SessionWindows pt1m-session-window)
       (.aggregate (reify Initializer
                     (apply [_] {:received-primer false
@@ -311,23 +344,30 @@
                                 :pixels          []}))
                   (reify Aggregator
                     (apply [_ _ message agg]
-                      (if (:number-of-pixels message)
-                        (assoc agg
-                               :expected-pixels (:number-of-pixels message)
-                               :received-primer true)
-                        (update agg :pixels conj message))))
+                      (let [agg (assoc agg :name (:name message))]
+                        (if (:number-of-pixels message)
+                          (assoc agg
+                                 :expected-pixels (:number-of-pixels message)
+                                 :received-primer true)
+                          (update agg :pixels conj message)))))
                   (reify Merger
                     (apply [_ k v1 v2]
-                      {:received-primer (or (:received-primer v1)
+                      {:name            (:name v1)
+                       :received-primer (or (:received-primer v1)
                                             (:received-primer v2))
                        :expected-pixels (+ (:expected-pixels v1)
                                            (:expected-pixels v2))
                        :pixels          (into (:pixels v1) (:pixels v2))})))
       (.toStream)
       (instrument-stream :group-by-row/aggregate)
+      (.filter (reify Predicate
+                 (test [_ k v]
+                   (boolean (and (< 0 (count (:pixels v)))
+                                 (:name v))))))
+      (instrument-stream :group-by-row/filter1)
       (.map (reify KeyValueMapper
               (apply [_ k v]
-                (KeyValue. (:name (first v)) (update v :pixels #(sort-by :time %))))))
+                (KeyValue. (:name v) (update v :pixels #(sort-by :time %))))))
       (instrument-stream :group-by-row/map1)
       (.filter (reify Predicate
                  (test [_ k v]
@@ -337,7 +377,7 @@
                                  ;; this requires exactly-once semantics to work.
                                  (= (:expected-pixels v)
                                     (count (:pixels v))))))))
-      (instrument-stream :group-by-row/filter)
+      (instrument-stream :group-by-row/filter2)
       (.map (reify KeyValueMapper
               (apply [_ k v]
                 (let [{:keys [pixels]} v
@@ -427,13 +467,15 @@
                                     correlate-rgb-stream-operations
                                     (instrument-stream :correlate-rgb))]
 
-      (-> (.merge primer-stream correlated-rgb-stream)
-          (instrument-stream :merged/primer+rgb)
-          group-by-row-stream-operations
-          (instrument-stream :group-by-row)
-          group-by-rows-stream-operations
-          (instrument-stream :group-by-rows)
-          (rows-to-image-stream-operations output-image-path)))))
+      ;; (-> (.merge primer-stream correlated-rgb-stream)
+      ;;     (instrument-stream :merged/primer+rgb)
+      ;;     group-by-row-stream-operations
+      ;;     (instrument-stream :group-by-row)
+      ;;     group-by-rows-stream-operations
+      ;;     (instrument-stream :group-by-rows)
+      ;;     (rows-to-image-stream-operations output-image-path))
+      correlated-rgb-stream
+      )))
 
 (defn number-stations-to-image-topology
   [input-topic output-image-path]
@@ -444,3 +486,18 @@
 ;; materialize to store via latitude -- overwrite
 ;; going back, insert dedup into topologies -- pixel repetitition
 ;; insert join into topologies -- (colour cycling) (join with colour ktable store)
+
+
+(defn image
+  [rows filename]
+  (let [width (apply max (map count rows))]
+    (-> (render-image (mapcat (fn [pixels]
+                                ;; pad pixels to same length
+                                (vec (concat pixels (repeat (- (count pixels) width) nil))))
+                              rows)
+                      width)
+        (write-output filename))))
+
+(defn fetch-image
+  [store radio-station-names start end]
+  (map second (sort-by first (slice-radio-stations store radio-station-names start end))))

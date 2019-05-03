@@ -11,15 +11,6 @@
    :longitude  144
    :numbers    ["one" "two" "three"]})
 
-;; TOPIC "number-stations"
-(def number-station-message-primer-stereotype
-  {:time             0 ;; epoch timestamp (long)
-   :name             "E-123" ;; radio station name
-   :latitude         37
-   :longitude        144
-   :number-of-pixels 100 ;; number of pixels
-   })
-
 ;; TOPIC "translate-numbers"
 (def translated-numbers-message-stereotype
   {:time             0
@@ -35,6 +26,19 @@
    :latitude  37
    :longitude 144
    :rgb       [123 0 0]})
+
+;; bursts with 30 second gaps. reverse burst
+;;
+
+;; remove primer; just use window
+;; ;; TOPIC "number-stations"
+;; (def number-station-message-primer-stereotype
+;;   {:time             0 ;; epoch timestamp (long)
+;;    :name             "E-123" ;; radio station name
+;;    :latitude         37
+;;    :longitude        144
+;;    :number-of-pixels 100 ;; number of pixels
+;;    })
 
 ;; TOPIC "rgb-row-stream"
 (def rgb-row-stereotype
