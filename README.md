@@ -4,19 +4,19 @@
 
 A web server at localhost:8080 can be started with:
 
-  lein run
+    lein run
 
 or, by compiling the namespace:
 
-  number-stations.system
+    number-stations.system
 
 and running:
 
-  (number-stations.system/start)
+    (number-stations.system/start)
 
 Tests can be found in namespace:
 
-  number-stations.topology-test:
+    number-stations.topology-test:
 
     - translate-numbers-test                (translates ["one" "two" "three"] into 123)
     - correlate-rgb-test                     (groups 10 second windowed messages into rgb's)
