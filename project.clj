@@ -10,5 +10,6 @@
                  [integrant "0.7.0"]
                  [http-kit "2.3.0"]
                  [metosin/reitit-core "0.3.1"]
-                 [metosin/reitit-ring "0.3.1"]]
+                 [metosin/reitit-ring "0.3.1"]
+                 [hiccup "1.0.5"]]
   :repl-options {:init-ns number-stations.core})
