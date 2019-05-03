@@ -1,6 +1,12 @@
 # Getting started
 
-A web server at localhost:8080 can be started by compiling the namespace:
+
+
+A web server at localhost:8080 can be started with:
+
+  lein run
+
+or, by compiling the namespace:
 
   number-stations.system
 
