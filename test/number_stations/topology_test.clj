@@ -1,7 +1,9 @@
 (ns number-stations.topology-test
   (:require [clojure.java.io :as io]
             [clojure.test :refer [deftest is]]
-            [number-stations.images :as images])
+            [number-stations.images :as images]
+            [number-stations.topology :as topology]
+            [number-stations.generator :as generator])
   (:import java.util.Properties
            org.apache.kafka.clients.producer.ProducerRecord
            [org.apache.kafka.common.serialization StringDeserializer StringSerializer]
@@ -16,7 +18,7 @@
     (.putAll props {"application.id"      (str (rand-int 1000000))
                     "bootstrap.servers"   "localhost:9092"
                     "default.key.serde"   "org.apache.kafka.common.serialization.Serdes$StringSerde"
-                    "default.value.serde" "number_stations.generator.JsonSerde"})
+                    "default.value.serde" "number_stations.topology.JsonSerde"})
     props))
 
 (def extractor

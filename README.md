@@ -1,3 +1,25 @@
+# Getting started
+
+A web server at localhost:8080 can be started by compiling the namespace:
+
+  number-stations.system
+
+and running:
+
+  (number-stations.system/start)
+
+Tests can be found in namespace:
+
+  number-stations.topology-test:
+
+    - translate-numbers-test                (translates ["one" "two" "three"] into 123)
+    - correlate-rgb-test                     (groups 10 second windowed messages into rgb's)
+    - number-stations-to-image-topology-test (generates an image)
+
+# ..Archived..
+
+... ignore the remainder ..
+
 # Number Stations Generator
 
 Generate a stream of numbers from an image to be used in a Kafka workshop as a decoding puzzle.
