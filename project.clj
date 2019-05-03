@@ -6,5 +6,9 @@
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [org.clojure/data.json "0.2.6"]
                  [clojure.java-time "0.3.2"]
-                 [org.apache.kafka/kafka-streams-test-utils "2.2.0"]]
+                 [org.apache.kafka/kafka-streams-test-utils "2.2.0"]
+                 [integrant "0.7.0"]
+                 [http-kit "2.3.0"]
+                 [metosin/reitit-core "0.3.1"]
+                 [metosin/reitit-ring "0.3.1"]]
   :repl-options {:init-ns number-stations.core})
