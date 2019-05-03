@@ -14,6 +14,9 @@
 
 (defn config
   []
+  ;; force JsonSerde it to exist
+  (compile 'number-stations.topology)
+
   (let [props (Properties.)]
     (.putAll props {"application.id"      (str (rand-int 1000000))
                     "bootstrap.servers"   "localhost:9092"
@@ -93,7 +96,7 @@
         (topology/correlate-rgb))
 
     (with-open [driver (TopologyTestDriver. (.build builder) (config))]
-      (doseq [message (generator/generate-messages images/small-image)]
+      (doseq [message (take 1000 (generator/generate-messages images/small-image))]
         (.pipeInput driver (.create factory "input" (:name message) message)))
 
       (images/radio-stations-to-image (.getWindowStore driver topology/pt10s-store)
