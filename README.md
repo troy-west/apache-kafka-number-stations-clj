@@ -18,7 +18,7 @@ Tests can be found in namespace:
 
     number-stations.topology-test:
 
-    - translate-numbers-test                (translates ["one" "two" "three"] into 123)
+    - translate-numbers-test                 (translates ["one" "two" "three"] into 123)
     - correlate-rgb-test                     (groups 10 second windowed messages into rgb's)
     - number-stations-to-image-topology-test (generates an image)
 
