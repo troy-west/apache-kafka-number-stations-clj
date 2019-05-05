@@ -4,7 +4,7 @@
 
 A web server at localhost:8080 can be started with:
 
-    lein run
+    lein do clean, run
 
 or, by compiling the namespace:
 
