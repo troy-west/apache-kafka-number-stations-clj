@@ -12,6 +12,8 @@
     PORT=8083 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar &
     PORT=8084 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar &
 
+Visit localhost:8081, localhost:8082, localhost:8083, localhost:8084
+
 # Getting started
 
 A web server at localhost:8080 can be started with:
