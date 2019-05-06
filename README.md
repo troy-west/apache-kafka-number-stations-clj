@@ -16,6 +16,8 @@ In a new terminal, view the running kafka logs:
 docker-compose logs -f
 ```
 
+Now, from within this project:
+
 # Testing, building and running
 
     lein do clean, test
