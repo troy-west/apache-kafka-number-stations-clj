@@ -8,13 +8,13 @@
  :number-stations/generator {:topic    "input4"
                              :producer {"bootstrap.servers" "localhost:9092"
                                         "key.serializer"    "org.apache.kafka.common.serialization.StringSerializer"
-                                        "value.serializer"  "number_stations.topology.JsonSerializer"}
+                                        "value.serializer"  "number_stations.serdes.JsonSerializer"}
 
                              :partitions         12
                              :replication-factor 3
                              :admin-client       {"bootstrap.servers" "localhost:9092"}}
 
  :httpkit/server            {:ring/app       #ig/ref :ring/app
-                             :httpkit/config {:port 8080}}
+                             :httpkit/config {:port #or [#env PORT 8080]}}
 
  :ring/app                  {:store #ig/ref :correlate/store}}

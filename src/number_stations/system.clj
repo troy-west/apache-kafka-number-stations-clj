@@ -1,6 +1,8 @@
 (ns number-stations.system
   (:gen-class)
-  (:require [clojure.java.io :as io]
+  (:require [aero.core :as aero]
+            [number-stations.serdes]
+            [clojure.java.io :as io]
             [hiccup.core :as hiccup]
             [integrant.core :as ig]
             [number-stations.generator :as generator]
@@ -64,9 +66,9 @@
                                     (Long/parseLong end)
                                     (catch Exception _
                                       2000000000))]
-                        (images/generate-image-output-stream store
-                                                             (io/file "resources/public/generated.png")
-                                                             start end)
+                        (images/radio-stations-to-image store
+                                                        start end
+                                                        (io/file "resources/public/generated.png"))
                         {:body    (index start end)
                          :status  200})))}})
 
@@ -144,7 +146,8 @@
 (defn start
   []
   {:pre [(not @system)]}
-  (let [config (ig/read-string (slurp (io/resource "config.edn")))]
+  (let [config (binding [*data-readers* (merge *data-readers* {'ig/ref ig/ref})]
+                 (aero/read-config (io/resource "config.edn")))]
     (reset! system (ig/init config))))
 
 (defn stop

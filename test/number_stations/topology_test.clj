@@ -18,7 +18,7 @@
                           (topology/->JsonSerializer)))
 
 (def config
-  (topology/config {:application-id "test"}))
+  (topology/config))
 
 (defn read-output
   [^TopologyTestDriver driver topic]

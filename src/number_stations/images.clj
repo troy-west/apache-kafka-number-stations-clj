@@ -45,24 +45,23 @@
     (doall (map #(.value %) (iterator-seq iterator)))))
 
 (defn radio-stations-to-image
-  [store radio-station-names start end file]
-  (let [radio-station-rows (map #(fetch store % start end) radio-station-names)
-        pixel-rows         (for [row radio-station-rows]
-                             (for [pixel row
-                                   :when (= 3 (count pixel))]
-                               (mapv :number pixel)))
-        width              (apply max (map count pixel-rows))
-        pixels             (mapcat (fn [pixel-row]
-                                     ;; pad pixels to same length
-                                     (concat pixel-row (repeat (- (count pixel-row) width) nil)))
-                                   pixel-rows)]
-    (write-output (render-image pixels width) file)))
-
-(defn generate-image-output-stream
-  [store file start end]
-  (radio-stations-to-image store
-                           (vec (for [i (range 1000)]
-                                  (str "E-" i)))
-                           start
-                           end
-                           file))
+  ([store start end file]
+   (radio-stations-to-image store
+                            (vec (for [i (range 1000)]
+                                   (str "E-" i)))
+                            start
+                            end
+                            file))
+  ([store radio-station-names start end file]
+   (let [radio-station-rows (map #(fetch store % start end) radio-station-names)
+         pixel-rows         (for [row radio-station-rows]
+                              (for [pixel row
+                                    :when (= 3 (count pixel))]
+                                (mapv :number pixel)))
+         width              (apply max (map count pixel-rows))
+         pixels             (mapcat (fn [pixel-row]
+                                      ;; pad pixels to same length
+                                      (concat pixel-row (repeat (- (count pixel-row) width) nil)))
+                                    pixel-rows)]
+     (println :n-pixels (count pixels))
+     (write-output (render-image pixels width) file))))

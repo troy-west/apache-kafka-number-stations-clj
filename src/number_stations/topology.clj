@@ -1,6 +1,5 @@
 (ns number-stations.topology
-  (:require [clojure.data.json :as json]
-            [number-stations.translate :as translate])
+  (:require [number-stations.translate :as translate])
   (:import java.time.Duration
            java.util.Properties
            [org.apache.kafka.common.serialization Deserializer Serde Serdes Serializer]
@@ -19,30 +18,11 @@
     (extract [_ record _]
       (:time (.value record)))))
 
-(deftype JsonSerializer []
-  Serializer
-  (configure [_ _ _])
-  (serialize [_ _ data] (.getBytes (json/write-str data)))
-  (close [_]))
-
-(deftype JsonDeserializer []
-  Deserializer
-  (configure [_ _ _])
-  (deserialize [_ _ data] (json/read-str (String. data) :key-fn keyword))
-  (close [_]))
-
-(deftype JsonSerde []
-  Serde
-  (configure [_ _ _])
-  (close [_])
-  (serializer [_] (JsonSerializer.))
-  (deserializer [_] (JsonDeserializer.)))
-
 (def default-config
   {"application.id"      "stream-default"
    "bootstrap.servers"   "localhost:9092"
    "default.key.serde"   "org.apache.kafka.common.serialization.Serdes$StringSerde"
-   "default.value.serde" "number_stations.topology.JsonSerde"})
+   "default.value.serde" "number_stations.serdes.JsonSerde"})
 
 (defn config
   ([]
