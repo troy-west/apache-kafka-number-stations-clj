@@ -72,24 +72,6 @@
       (is (= nil
              (read-output driver "output"))))))
 
-(deftest deduplicate-test
-  (let [builder (StreamsBuilder.)]
-    (some-> (.stream builder input-topic (Consumed/with topology/extractor))
-            (topology/deduplicate builder)
-            (.to output-topic))
-
-    (with-open [driver (TopologyTestDriver. (.build builder) config)]
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10 :name "E-test-english" :translated 321}))
-      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 30 :name "G-test-german" :translated 100}))
-      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 30 :name "G-test-german" :translated 100}))
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10 :name "E-test-english" :translated 321}))
-
-      (is (= {:time 10 :name "E-test-english" :translated 321}
-             (read-output driver "output")))
-      (is (= {:time 30, :name "G-test-german", :translated 100}
-             (read-output driver "output")))
-      (is (= nil
-             (read-output driver "output"))))))
 
 (deftest correlate-test
   (let [builder (StreamsBuilder.)]
@@ -219,6 +201,25 @@
         (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 40000 (dec 50000))]
           (is (= (mapv #(.value %) (iterator-seq iterator))
                  (topology/fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 40000 (dec 50000)))))))))
+
+(deftest deduplicate-test
+  (let [builder (StreamsBuilder.)]
+    (some-> (.stream builder input-topic (Consumed/with topology/extractor))
+            (topology/deduplicate builder)
+            (.to output-topic))
+
+    (with-open [driver (TopologyTestDriver. (.build builder) config)]
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10 :name "E-test-english" :translated 321}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 30 :name "G-test-german" :translated 100}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 30 :name "G-test-german" :translated 100}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10 :name "E-test-english" :translated 321}))
+
+      (is (= {:time 10 :name "E-test-english" :translated 321}
+             (read-output driver "output")))
+      (is (= {:time 30, :name "G-test-german", :translated 100}
+             (read-output driver "output")))
+      (is (= nil
+             (read-output driver "output"))))))
 
 ;; (deftest number-stations-to-image-topology-test
 ;;   (let [builder        (StreamsBuilder.)
