@@ -41,7 +41,6 @@
 
 (defn radio-stations-to-image
   [store radio-station-names start end file]
-  ;; todo use fetch-all
   (let [radio-station-rows (map #(topology/fetch store % start end) radio-station-names)
         pixel-rows         (for [row radio-station-rows]
                              (for [pixel row
