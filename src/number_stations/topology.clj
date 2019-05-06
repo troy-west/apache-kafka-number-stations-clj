@@ -62,12 +62,12 @@
 
 (defn non-duplicate
   [state-store timestamp window-size k v]
-  (let [id          (unique-id v)
-        duplicate?  (with-open [result (.fetch state-store
-                                               id
-                                               (- timestamp window-size)
-                                               (+ timestamp window-size))]
-                      (.hasNext result))]
+  (let [id         (unique-id v)
+        duplicate? (with-open [result (.fetch state-store
+                                              id
+                                              (- timestamp window-size)
+                                              (+ timestamp window-size))]
+                     (.hasNext result))]
     (.put state-store id timestamp timestamp)
     (when-not duplicate?
       (KeyValue. k v))))

@@ -57,21 +57,21 @@
 (defn handler
   [store base-filename]
   {:get {:parameters {:query {:start int?, :end int?}}
-         :handler (fn [req]
-                    (let [{:strs [start end]} (:query-params req)]
-                      (let [start (try
-                                    (Long/parseLong start)
-                                    (catch Exception _
-                                      0))
-                            end   (try
-                                    (Long/parseLong end)
-                                    (catch Exception _
-                                      2000000000))]
-                        (images/radio-stations-to-image store
-                                                        start end
-                                                        (io/file base-filename))
-                        {:body    (index start end)
-                         :status  200})))}})
+         :handler    (fn [req]
+                       (let [{:strs [start end]} (:query-params req)]
+                         (let [start (try
+                                       (Long/parseLong start)
+                                       (catch Exception _
+                                         0))
+                               end   (try
+                                       (Long/parseLong end)
+                                       (catch Exception _
+                                         2000000000))]
+                           (images/radio-stations-to-image store
+                                                           start end
+                                                           (io/file base-filename))
+                           {:body   (index start end)
+                            :status 200})))}})
 
 (defmethod ig/init-key :ring/app
   [_ {:keys [store]}]
@@ -84,7 +84,7 @@
             ["/" (handler store base-filename)]
             ["/generated.png" (fn [req]
                                 (println :image base-filename (.exists (io/file base-filename)))
-                                {:status 200
+                                {:status  200
                                  :headers {}
                                  :body    (io/file base-filename)})]])
 
