@@ -5,7 +5,7 @@
            java.util.Properties
            [org.apache.kafka.common.serialization Deserializer Serde Serdes Serializer]
            org.apache.kafka.streams.KeyValue
-           [org.apache.kafka.streams.kstream Aggregator Initializer Materialized Predicate TimeWindows TransformerSupplier ValueMapper]
+           [org.apache.kafka.streams.kstream Aggregator Initializer Materialized Predicate TimeWindows Transformer TransformerSupplier ValueMapper]
            org.apache.kafka.streams.processor.TimestampExtractor
            org.apache.kafka.streams.state.Stores))
 
@@ -70,8 +70,8 @@
       (.aggregate (reify Initializer
                     (apply [_] []))
                   (reify Aggregator
-                    (apply [_ _ message colour-components]
-                      (conj colour-components message)))
+                    (apply [_ _ message messages]
+                      (conj messages message)))
                   (Materialized/as ^String pt10s-store))))
 
 (defn fetch
