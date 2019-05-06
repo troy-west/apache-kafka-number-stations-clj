@@ -4,16 +4,13 @@
   (:import java.time.Duration
            java.util.Properties
            [org.apache.kafka.common.serialization Deserializer Serde Serdes Serializer]
-           org.apache.kafka.streams.KeyValue
-           [org.apache.kafka.streams.kstream Aggregator Initializer Materialized Predicate TimeWindows Transformer TransformerSupplier ValueMapper]
+           [org.apache.kafka.streams KeyValue StreamsBuilder]
+           [org.apache.kafka.streams.kstream Aggregator Consumed Initializer Materialized Predicate TimeWindows Transformer TransformerSupplier ValueMapper]
            org.apache.kafka.streams.processor.TimestampExtractor
            org.apache.kafka.streams.state.Stores))
 
 (def pt10s-window (TimeWindows/of (Duration/ofSeconds 10)))
 (def pt10s-store "components-pt10s-store")
-
-(def pt1m-window (TimeWindows/of (Duration/ofMinutes 1)))
-(def pt1m-store "components-pt1m-store")
 
 (def deduplicate-store "deduplicate-store")
 
@@ -41,17 +38,18 @@
   (serializer [_] (JsonSerializer.))
   (deserializer [_] (JsonDeserializer.)))
 
+(def default-config
+  {"application.id"      "stream-default"
+   "bootstrap.servers"   "localhost:9092"
+   "default.key.serde"   "org.apache.kafka.common.serialization.Serdes$StringSerde"
+   "default.value.serde" "number_stations.topology.JsonSerde"})
+
 (defn config
-  [{:keys [bootstrap-servers application-id] :or {bootstrap-servers "localhost:9092"}}]
-
-  ;; force JsonSerde it to exist as a class file, which kafka consumers and producers need.
-  (compile 'number-stations.topology)
-
-  (doto (Properties.)
-    (.putAll {"application.id"      application-id
-              "bootstrap.servers"   bootstrap-servers
-              "default.key.serde"   "org.apache.kafka.common.serialization.Serdes$StringSerde"
-              "default.value.serde" "number_stations.topology.JsonSerde"})))
+  ([]
+   (config default-config))
+  ([props]
+   (doto (Properties.)
+     (.putAll (merge default-config props)))))
 
 (defn translate
   [stream]
@@ -119,3 +117,11 @@
                                          v))
                         (close [_])))))
                 (into-array String [deduplicate-store]))))
+
+(defn combined
+  [stream builder]
+  (some-> stream
+          translate
+          denoise
+          (deduplicate builder)
+          correlate))

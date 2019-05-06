@@ -57,3 +57,12 @@
                                      (concat pixel-row (repeat (- (count pixel-row) width) nil)))
                                    pixel-rows)]
     (write-output (render-image pixels width) file)))
+
+(defn generate-image-output-stream
+  [store file start end]
+  (radio-stations-to-image store
+                           (vec (for [i (range 1000)]
+                                  (str "E-" i)))
+                           start
+                           end
+                           file))

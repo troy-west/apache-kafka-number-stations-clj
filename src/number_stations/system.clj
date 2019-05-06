@@ -1,5 +1,7 @@
 (ns number-stations.system
+  (:gen-class)
   (:require [clojure.java.io :as io]
+            [hiccup.core :as hiccup]
             [integrant.core :as ig]
             [number-stations.generator :as generator]
             [number-stations.images :as images]
@@ -7,15 +9,14 @@
             [org.httpkit.server :as httpkit]
             [reitit.ring :as reitit.ring]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
-            [ring.middleware.params :refer [wrap-params]]
-            [hiccup.core :as hiccup])
+            [ring.middleware.params :refer [wrap-params]])
   (:import java.util.Properties
-           org.apache.kafka.common.serialization.StringSerializer
-           [org.apache.kafka.streams StreamsBuilder TopologyTestDriver]
+           [org.apache.kafka.clients.admin AdminClient NewTopic]
+           [org.apache.kafka.clients.producer KafkaProducer ProducerRecord]
+           [org.apache.kafka.streams KafkaStreams KafkaStreams$State StreamsBuilder]
            org.apache.kafka.streams.kstream.Consumed
-           org.apache.kafka.streams.processor.TimestampExtractor
-           org.apache.kafka.streams.test.ConsumerRecordFactory)
-  (:gen-class))
+           org.apache.kafka.streams.state.QueryableStoreTypes
+           org.apache.kafka.clients.admin.AdminClient))
 
 (defonce system (atom nil))
 
@@ -29,15 +30,6 @@
 (defmethod ig/halt-key! :httpkit/server
   [_ stop-server-fn]
   (stop-server-fn))
-
-(defn generate-image-output-stream
-  [driver file start end]
-  (images/radio-stations-to-image (.getWindowStore driver topology/pt10s-store)
-                                  (vec (for [i (range 1000)]
-                                         (str "E-" i)))
-                                  start
-                                  end
-                                  file))
 
 (defn index
   [start end]
@@ -60,7 +52,7 @@
                   [:img {:src (str "generated.png?" (rand-int 1000000)) :width "480"}]]]]))
 
 (defn handler
-  [test-driver]
+  [store]
   {:get {:parameters {:query {:start int?, :end int?}}
          :handler (fn [req]
                     (let [{:strs [start end]} (:query-params req)]
@@ -72,45 +64,82 @@
                                     (Long/parseLong end)
                                     (catch Exception _
                                       2000000000))]
-                        (generate-image-output-stream test-driver (io/file "resources/public/generated.png")
-                                                      start end)
+                        (images/generate-image-output-stream store
+                                                             (io/file "resources/public/generated.png")
+                                                             start end)
                         {:body    (index start end)
                          :status  200})))}})
 
 (defmethod ig/init-key :ring/app
-  [_ {:keys [kafkastreams/test-driver]}]
+  [_ {:keys [store]}]
+  {:pre [store]}
   (->> (reitit.ring/ring-handler
         (reitit.ring/router
-         ["" ["/" (handler test-driver)]])
+         ["" ["/" (handler store)]])
         (reitit.ring/routes
          (reitit.ring/create-resource-handler {:path "/"})
          (reitit.ring/create-default-handler)))
        wrap-keyword-params
        wrap-params))
 
-(defmethod ig/init-key :kafkastreams/test-driver
-  [_ {:keys [input-topic application-id]}]
-  (let [builder   (StreamsBuilder.)
-        factory   (ConsumerRecordFactory. "input"
-                                          (StringSerializer.)
-                                          (topology/->JsonSerializer))]
+(defmethod ig/init-key :correlate/store
+  [_ {:keys [streams]}]
+  {:pre [streams]}
+  (.store streams topology/pt10s-store (QueryableStoreTypes/windowStore)))
 
-    (some-> (.stream builder input-topic (Consumed/with topology/extractor))
-            topology/translate
-            topology/denoise
-            (topology/deduplicate builder)
-            topology/correlate)
+(defmethod ig/init-key :number-stations/generator
+  [_ {:keys [topic producer admin-client partitions replication-factor]}]
+  {:pre [(seq topic) admin-client partitions replication-factor]}
+  (try
+    (println "Creating topic")
+    @(.all (.createTopics (AdminClient/create admin-client)
+                          [(NewTopic. topic partitions replication-factor)]))
+    (catch Exception e
+      (println e)))
 
-    (let [driver (TopologyTestDriver. (.build builder) (topology/config {:application-id application-id}))]
-      (future (doseq [message (generator/generate-messages images/small-image)]
-                (locking driver
-                  (.pipeInput driver (.create factory "input" (:name message) message)))))
+  (let [producer (KafkaProducer. (doto (Properties.)
+                                   (.putAll producer)))
+        f        (future
+                   (println "Generation begun.")
+                   (try
+                     (doseq [message (generator/generate-messages images/small-image)]
+                       (.send producer (ProducerRecord. topic (:name message) message)))
+                     (catch Exception e
+                       (println e)
+                       (throw e))))]
 
-      driver)))
+    (when (future-done? f)
+      (println @f))
 
-(defmethod ig/halt-key! :kafkastreams/test-driver
-  [_ driver]
-  (.close driver))
+    f))
+
+(defmethod ig/halt-key! :number-stations/generator
+  [_ f]
+  (future-cancel f))
+
+(defn wait-for-running-state
+  [streams]
+  (loop []
+    (let [state (.state streams)]
+      (println "Waiting on stream state to be RUNNING: " state)
+      (when-not (= KafkaStreams$State/RUNNING state)
+        (Thread/sleep 1000)
+        (recur)))))
+
+(defmethod ig/init-key :kafka/streams
+  [_ {:keys [input-topic topology]}]
+  (let [builder (StreamsBuilder.)]
+    (-> (.stream builder input-topic (Consumed/with topology/extractor))
+        (topology/combined builder))
+
+    (doto (KafkaStreams. (.build builder)
+                         (topology/config topology))
+      (.start)
+      (wait-for-running-state))))
+
+(defmethod ig/halt-key! :kafka/streams
+  [_ streams]
+  (.close streams))
 
 (defn start
   []

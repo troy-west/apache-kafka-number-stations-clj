@@ -162,10 +162,7 @@
 (deftest translate-test
   (let [builder (StreamsBuilder.)]
     (some-> (.stream builder input-topic (Consumed/with topology/extractor))
-            topology/translate
-            topology/denoise
-            (topology/deduplicate builder)
-            topology/correlate)
+            (topology/combined builder))
 
     (with-open [driver (TopologyTestDriver. (.build builder) config)]
       (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10 :name "E-test-english" :numbers ["three" "two" "one"]}))
