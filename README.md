@@ -1,11 +1,18 @@
+# Initialize Kafka + Kakfa Tools
+
+Using [troy-west/apache-kafka-cli-tools](https://github.com/troy-west/apache-kafka-cli-tools)
+
+Start a 3-node Kafka Cluster and enter a shell with all kafka-tools scripts:
+```sh
+docker rm
+docker-compose up -d
+docker-compose -f docker-compose.tools.yml run kafka-tools
+```
+
 # Testing, building and running
 
     lein do clean, test
-
     lein do clean, uberjar
-
-    docker-compose rm
-    docker-compose up -d
 
     PORT=8081 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar &
     PORT=8082 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar &
@@ -13,7 +20,6 @@
     PORT=8084 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar &
 
 Visit localhost:8081, localhost:8082, localhost:8083, localhost:8084
-
 
 Now, test repartitioning:
 
