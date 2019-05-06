@@ -17,21 +17,18 @@
            org.apache.kafka.streams.test.ConsumerRecordFactory)
   (:gen-class))
 
-#_ (defn wrap-dir-index [handler]
-  (fn [req]
-    (handler
-     (update-in req [:uri] #(if (= "/" %) "/index.html" %)))))
+(defonce system (atom nil))
 
 (defmethod ig/init-key :httpkit/server
   [_ {:keys [ring/app :httpkit/config]}]
   {:pre [(:port config)]}
   (let [server (httpkit/run-server app config)]
-    (println "Serving on :port" (:port config))
+    (println "Serving on port" (:port config))
     server))
 
 (defmethod ig/halt-key! :httpkit/server
-  [_ server]
-  (server))
+  [_ stop-server-fn]
+  (stop-server-fn))
 
 (defn generate-image-output-stream
   [driver file start end]
@@ -75,7 +72,6 @@
                         {:body    (index start end)
                          :status  200})))}})
 
-
 (defmethod ig/init-key :ring/app
   [_ {:keys [kafkastreams/test-driver]}]
   (->> (reitit.ring/ring-handler
@@ -85,37 +81,22 @@
          (reitit.ring/create-resource-handler {:path "/"})
          (reitit.ring/create-default-handler)))
        wrap-keyword-params
-       wrap-params
-       #_ wrap-dir-index))
-
-(defn config
-  []
-  (compile 'number-stations.topology)
-
-  (let [props (Properties.)]
-    (.putAll props {"application.id"      (str (rand-int 1000000))
-                    "bootstrap.servers"   "localhost:9092"
-                    "default.key.serde"   "org.apache.kafka.common.serialization.Serdes$StringSerde"
-                    "default.value.serde" "number_stations.topology.JsonSerde"})
-    props))
+       wrap-params))
 
 (defmethod ig/init-key :kafkastreams/test-driver
-  [_ _]
+  [_ {:keys [input-topic application-id]}]
   (let [builder   (StreamsBuilder.)
         factory   (ConsumerRecordFactory. "input"
                                           (StringSerializer.)
-                                          (topology/->JsonSerializer))
-        extractor (reify TimestampExtractor
-                    (extract [_ record _]
-                      (:time (.value record))))
-        stream    (.stream builder "input" (Consumed/with extractor))]
+                                          (topology/->JsonSerializer))]
 
-    (-> stream
-        (topology/translate-numbers)
-        (topology/correlate-rgb))
+    (some-> (.stream builder input-topic (Consumed/with topology/extractor))
+            topology/translate
+            topology/denoise
+            (topology/deduplicate builder)
+            topology/correlate)
 
-
-    (let [driver (TopologyTestDriver. (.build builder) (config))]
+    (let [driver (TopologyTestDriver. (.build builder) (topology/config {:application-id application-id}))]
       (future (doseq [message (generator/generate-messages images/small-image)]
                 (locking driver
                   (.pipeInput driver (.create factory "input" (:name message) message)))))
@@ -126,15 +107,14 @@
   [_ driver]
   (.close driver))
 
-(defonce system (atom nil))
-
 (defn start
   []
   {:pre [(not @system)]}
   (let [config {:httpkit/server           {:ring/app       (ig/ref :ring/app)
                                            :httpkit/config {:port 8080}}
                 :ring/app                 {:kafkastreams/test-driver (ig/ref :kafkastreams/test-driver)}
-                :kafkastreams/test-driver {}}]
+                :kafkastreams/test-driver {:input-topic    "input"
+                                           :application-id "number-stations"}}]
     (reset! system (ig/init config))))
 
 (defn stop

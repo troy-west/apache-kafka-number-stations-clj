@@ -1,9 +1,9 @@
 (ns number-stations.images
-  (:require [clojure.java.io :as io])
+  (:require [clojure.java.io :as io]
+            [number-stations.topology :as topology])
   (:import java.awt.Color
            java.awt.image.BufferedImage
-           javax.imageio.ImageIO
-           org.apache.kafka.streams.state.ReadOnlyWindowStore))
+           javax.imageio.ImageIO))
 
 (defonce small-image
   (ImageIO/read (io/resource "small.png")))
@@ -39,21 +39,14 @@
                   "png"
                   file)))
 
-(defn fetch-row
-  [^ReadOnlyWindowStore store ^String metric-name ^long start ^long end]
-  (with-open [iterator (.fetch ^ReadOnlyWindowStore store metric-name start end)]
-    (iterator-seq iterator)))
-
-(defn fetch-rows
-  [store radio-station-names start end]
-  (reduce #(assoc %1 %2 (fetch-row store %2 start end)) {} radio-station-names))
-
 (defn radio-stations-to-image
   [store radio-station-names start end file]
-  (let [radio-station-rows (fetch-rows store radio-station-names start end)
-        pixel-rows         (for [[radio-station-name pixels] radio-station-rows]
-                             (for [key-value-pair pixels]
-                               (mapv :colour-component (.value key-value-pair))))
+  ;; todo use fetch-all
+  (let [radio-station-rows (map #(topology/fetch store % start end) radio-station-names)
+        pixel-rows         (for [row radio-station-rows]
+                             (for [pixel row
+                                   :when (= 3 (count pixel))]
+                               (mapv :number pixel)))
         width              (apply max (map count pixel-rows))
         pixels             (mapcat (fn [pixel-row]
                                      ;; pad pixels to same length

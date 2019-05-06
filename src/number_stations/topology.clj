@@ -79,10 +79,10 @@
   (with-open [iterator (.fetch store metric-name start end)]
     (doall (map #(.value %) (iterator-seq iterator)))))
 
-(defn fetch-all
-  [store start end]
-  (with-open [iterator (.fetchAll store start end)]
-    (doall (map #(.value %) (iterator-seq iterator)))))
+;; (defn fetch-all
+;;   [store start end]
+;;   (with-open [iterator (.fetchAll store start end)]
+;;     (doall (map #(.value %) (iterator-seq iterator)))))
 
 (defn unique-id
   [message]
