@@ -36,73 +36,115 @@
 
 (deftest translate-test
   (let [builder (StreamsBuilder.)]
-    (-> (.stream builder input-topic (Consumed/with topology/extractor))
-        topology/translate
-        (.to output-topic))
+    (some-> (.stream builder input-topic (Consumed/with topology/extractor))
+            topology/translate
+            (.to output-topic))
 
     (with-open [driver (TopologyTestDriver. (.build builder) config)]
       (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10 :name "E-test-english" :numbers ["three" "two" "one"]}))
-      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 20 :name "G-test-german" :numbers ["eins" "null" "null"]}))
+      (.pipeInput driver (.create record-factory input-topic "X-unknown" {:time 20 :name "X-unknown" :numbers ["unicorn" "camel" "dropbear"]}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 30 :name "G-test-german" :numbers ["eins" "null" "null"]}))
 
-      (is (= {:time 10 :name "E-test-english" :colour-component 321}
+      (is (= {:time 10 :name "E-test-english" :translated 321}
              (read-output driver "output")))
-      (is (= {:time 20 :name "G-test-german" :colour-component 100}
+      (is (= {:time 20 :name "X-unknown" :translated nil}
+             (read-output driver "output")))
+      (is (= {:time 30 :name "G-test-german" :translated 100}
+             (read-output driver "output")))
+      (is (= nil
+             (read-output driver "output"))))))
+
+(deftest denoise-test
+  (let [builder (StreamsBuilder.)]
+    (some-> (.stream builder input-topic (Consumed/with topology/extractor))
+            topology/denoise
+            (.to output-topic))
+
+    (with-open [driver (TopologyTestDriver. (.build builder) config)]
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10 :name "E-test-english" :translated 321}))
+      (.pipeInput driver (.create record-factory input-topic "X-unknown" {:time 20 :name "X-unknown" :translated nil}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 30 :name "G-test-german" :translated 100}))
+
+      (is (= {:time 10 :name "E-test-english" :translated 321}
+             (read-output driver "output")))
+      (is (= {:time 30, :name "G-test-german", :translated 100}
+             (read-output driver "output")))
+      (is (= nil
+             (read-output driver "output"))))))
+
+(deftest deduplicate-test
+  (let [builder (StreamsBuilder.)]
+    (some-> (.stream builder input-topic (Consumed/with topology/extractor))
+            (topology/deduplicate builder)
+            (.to output-topic))
+
+    (with-open [driver (TopologyTestDriver. (.build builder) config)]
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10 :name "E-test-english" :translated 321}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 30 :name "G-test-german" :translated 100}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 30 :name "G-test-german" :translated 100}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10 :name "E-test-english" :translated 321}))
+
+      (is (= {:time 10 :name "E-test-english" :translated 321}
+             (read-output driver "output")))
+      (is (= {:time 30, :name "G-test-german", :translated 100}
+             (read-output driver "output")))
+      (is (= nil
              (read-output driver "output"))))))
 
 (deftest correlate-test
-  (let [builder      (StreamsBuilder.)]
-    (-> (.stream builder input-topic (Consumed/with topology/extractor))
-        (topology/correlate))
+  (let [builder (StreamsBuilder.)]
+    (some-> (.stream builder input-topic (Consumed/with topology/extractor))
+            (topology/correlate))
 
     (with-open [driver (TopologyTestDriver. (.build builder) config)]
       ;; First window
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10010 :name "E-test-english" :colour-component 0}))
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 11000 :name "E-test-english" :colour-component 100}))
-      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 12000 :name "G-test-german" :colour-component 200}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10010 :name "E-test-english" :translated 0}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 11000 :name "E-test-english" :translated 100}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 12000 :name "G-test-german" :translated 200}))
       ;; Second window
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 22000 :name "E-test-english" :colour-component 50}))
-      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 20000 :name "G-test-german" :colour-component 210}))
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 21000 :name "E-test-english" :colour-component 150}))
-      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 25000 :name "G-test-german" :colour-component 220}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 22000 :name "E-test-english" :translated 50}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 20000 :name "G-test-german" :translated 210}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 21000 :name "E-test-english" :translated 150}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 25000 :name "G-test-german" :translated 220}))
       ;; Third window
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 30000 :name "E-test-english" :colour-component 65}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 30000 :name "E-test-english" :translated 65}))
 
       (testing "Fetch all keys for all time"
         (with-open [iterator (.fetchAll (.getWindowStore driver topology/pt10s-store) Long/MIN_VALUE Long/MAX_VALUE)]
-          (is (= [[{:time 10010, :name "E-test-english", :colour-component 0}
-                   {:time 11000, :name "E-test-english", :colour-component 100}]
-                  [{:time 22000, :name "E-test-english", :colour-component 50}
-                   {:time 21000, :name "E-test-english", :colour-component 150}]
-                  [{:time 30000, :name "E-test-english", :colour-component 65}]
+          (is (= [[{:time 10010, :name "E-test-english", :translated 0}
+                   {:time 11000, :name "E-test-english", :translated 100}]
+                  [{:time 22000, :name "E-test-english", :translated 50}
+                   {:time 21000, :name "E-test-english", :translated 150}]
+                  [{:time 30000, :name "E-test-english", :translated 65}]
                   ;; New keys grouped here
-                  [{:time 12000, :name "G-test-german", :colour-component 200}]
-                  [{:time 20000, :name "G-test-german", :colour-component 210}
-                   {:time 25000, :name "G-test-german", :colour-component 220}]]
+                  [{:time 12000, :name "G-test-german", :translated 200}]
+                  [{:time 20000, :name "G-test-german", :translated 210}
+                   {:time 25000, :name "G-test-german", :translated 220}]]
 
                  (mapv #(.value %) (iterator-seq iterator))))))
 
       (testing "Fetch by a key for all time"
         (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" Long/MIN_VALUE Long/MAX_VALUE)]
-          (is (= [[{:time 10010, :name "E-test-english", :colour-component 0}
-                   {:time 11000, :name "E-test-english", :colour-component 100}]
-                  [{:time 22000, :name "E-test-english", :colour-component 50}
-                   {:time 21000, :name "E-test-english", :colour-component 150}]
-                  [{:time 30000, :name "E-test-english", :colour-component 65}]]
+          (is (= [[{:time 10010, :name "E-test-english", :translated 0}
+                   {:time 11000, :name "E-test-english", :translated 100}]
+                  [{:time 22000, :name "E-test-english", :translated 50}
+                   {:time 21000, :name "E-test-english", :translated 150}]
+                  [{:time 30000, :name "E-test-english", :translated 65}]]
 
                  (mapv #(.value %) (iterator-seq iterator))))))
 
       (testing "Fetch by another key for all time"
         (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "G-test-german" Long/MIN_VALUE Long/MAX_VALUE)]
-          (is (= [[{:time 12000, :name "G-test-german", :colour-component 200}]
-                  [{:time 20000, :name "G-test-german", :colour-component 210}
-                   {:time 25000, :name "G-test-german", :colour-component 220}]]
+          (is (= [[{:time 12000, :name "G-test-german", :translated 200}]
+                  [{:time 20000, :name "G-test-german", :translated 210}
+                   {:time 25000, :name "G-test-german", :translated 220}]]
 
                  (mapv #(.value %) (iterator-seq iterator))))))
 
       (testing "Fetch by key and single full window"
         (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 10000 (dec 20000))]
-          (is (= [[{:time 10010, :name "E-test-english", :colour-component 0}
-                   {:time 11000, :name "E-test-english", :colour-component 100}]]
+          (is (= [[{:time 10010, :name "E-test-english", :translated 0}
+                   {:time 11000, :name "E-test-english", :translated 100}]]
 
                  (mapv #(.value %) (iterator-seq iterator))))))
 
@@ -124,22 +166,22 @@
                  (mapv #(.value %) (iterator-seq iterator)))))))))
 
 (deftest fetch-test
-  (let [builder      (StreamsBuilder.)]
-    (-> (.stream builder input-topic (Consumed/with topology/extractor))
-        (topology/correlate))
+  (let [builder (StreamsBuilder.)]
+    (some-> (.stream builder input-topic (Consumed/with topology/extractor))
+            (topology/correlate))
 
     (with-open [driver (TopologyTestDriver. (.build builder) config)]
       ;; First window
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10010 :name "E-test-english" :colour-component 0}))
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 11000 :name "E-test-english" :colour-component 100}))
-      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 12000 :name "G-test-german" :colour-component 200}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10010 :name "E-test-english" :translated 0}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 11000 :name "E-test-english" :translated 100}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 12000 :name "G-test-german" :translated 200}))
       ;; Second window
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 22000 :name "E-test-english" :colour-component 50}))
-      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 20000 :name "G-test-german" :colour-component 210}))
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 21000 :name "E-test-english" :colour-component 150}))
-      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 25000 :name "G-test-german" :colour-component 220}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 22000 :name "E-test-english" :translated 50}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 20000 :name "G-test-german" :translated 210}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 21000 :name "E-test-english" :translated 150}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 25000 :name "G-test-german" :translated 220}))
       ;; Third window
-      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 30000 :name "E-test-english" :colour-component 65}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 30000 :name "E-test-english" :translated 65}))
 
       (testing "Fetch all keys for all time"
         (with-open [iterator (.fetchAll (.getWindowStore driver topology/pt10s-store) Long/MIN_VALUE Long/MAX_VALUE)]
