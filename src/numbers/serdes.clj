@@ -1,4 +1,4 @@
-(ns number-stations.serdes
+(ns numbers.serdes
   (:require [clojure.data.json :as json])
   (:import [org.apache.kafka.common.serialization Deserializer Serde Serializer]))
 
@@ -20,3 +20,15 @@
   (close [_])
   (serializer [_] (JsonSerializer.))
   (deserializer [_] (JsonDeserializer.)))
+
+(defn json-serializer
+  []
+  (->JsonSerializer))
+
+(defn json-deserializer
+  []
+  (->JsonDeserializer))
+
+(defn json-serde
+  []
+  (->JsonSerde))
