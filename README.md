@@ -1,4 +1,6 @@
-# Building and running
+# Testing, building and running
+
+    lein do clean, test
 
     lein do clean, uberjar
 
