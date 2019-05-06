@@ -14,6 +14,15 @@
 
 Visit localhost:8081, localhost:8082, localhost:8083, localhost:8084
 
+
+Now, test repartitioning:
+
+    kill %4
+    kill %3
+    kill %2
+
+Revisit localhost:8081
+
 # Getting started
 
 A web server at localhost:8080 can be started with:
