@@ -25,7 +25,7 @@
 (defmethod ig/init-key :httpkit/server
   [_ {:keys [ring/app :httpkit/config]}]
   {:pre [(:port config)]}
-  (let [server (httpkit/run-server app config)]
+  (let [server (httpkit/run-server app (update config :port #(Integer/parseInt %)))]
     (println "Serving on port" (:port config))
     server))
 
