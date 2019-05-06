@@ -1,6 +1,11 @@
+# Building and running
+
+    lein do clean, uberjar
+
+    PORT=8081 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar
+    PORT=8082 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar
+
 # Getting started
-
-
 
 A web server at localhost:8080 can be started with:
 
