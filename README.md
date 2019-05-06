@@ -4,8 +4,10 @@
 
     lein do clean, uberjar
 
-    PORT=8081 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar
-    PORT=8082 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar
+    PORT=8081 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar &
+    PORT=8082 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar &
+    PORT=8083 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar &
+    PORT=8084 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar &
 
 # Getting started
 
