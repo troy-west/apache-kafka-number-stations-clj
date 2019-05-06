@@ -1,7 +1,7 @@
 (ns number-stations.topology-test
   (:require [clojure.java.io :as io]
-            [clojure.test :refer [deftest is]]
-            [number-stations.images :as images]
+            [clojure.test :refer [testing deftest is]]
+;;            [number-stations.images :as images]
             [number-stations.topology :as topology]
             [number-stations.generator :as generator])
   (:import java.util.Properties
@@ -12,96 +12,190 @@
            org.apache.kafka.streams.processor.TimestampExtractor
            org.apache.kafka.streams.test.ConsumerRecordFactory))
 
-(defn config
-  []
-  ;; force JsonSerde it to exist
-  (compile 'number-stations.topology)
+(def input-topic
+  "input")
 
-  (let [props (Properties.)]
-    (.putAll props {"application.id"      (str (rand-int 1000000))
-                    "bootstrap.servers"   "localhost:9092"
-                    "default.key.serde"   "org.apache.kafka.common.serialization.Serdes$StringSerde"
-                    "default.value.serde" "number_stations.topology.JsonSerde"})
-    props))
+(def output-topic
+  "output")
 
-(def extractor
-  (reify TimestampExtractor
-    (extract [_ record _]
-      (:time (.value record)))))
+(def record-factory
+  (ConsumerRecordFactory. input-topic
+                          (StringSerializer.)
+                          (topology/->JsonSerializer)))
+
+(def config
+  (topology/config {:application-id "test"}))
 
 (defn read-output
-  [driver topic]
-  (when-let [record (.readOutput ^TopologyTestDriver
-                                 driver
-                                 topic
-                                 (StringDeserializer.)
-                                 (topology/->JsonDeserializer))]
-    (.value ^ProducerRecord record)))
+  [^TopologyTestDriver driver topic]
+  (some-> (.readOutput driver
+                       topic
+                       (StringDeserializer.)
+                       (topology/->JsonDeserializer))
+          .value))
 
-(deftest translate-numbers-test
-  (let [factory (ConsumerRecordFactory. "input"
-                                        (StringSerializer.)
-                                        (topology/->JsonSerializer))
-        builder (StreamsBuilder.)
-        stream  (.stream builder "input" (Consumed/with extractor))]
+(deftest translate-test
+  (let [builder (StreamsBuilder.)]
+    (-> (.stream builder input-topic (Consumed/with topology/extractor))
+        topology/translate
+        (.to output-topic))
 
-    (-> stream
-        topology/translate-numbers
-        (.to "output"))
-
-    (with-open [driver (TopologyTestDriver. (.build builder) (config))]
-      (.pipeInput driver (.create factory "input" "name" {:time 10 :name "E-test-english" :numbers ["three" "two" "one"]}))
-      (.pipeInput driver (.create factory "input" "name" {:time 20 :name "G-test-german" :numbers ["eins" "null" "null"]}))
+    (with-open [driver (TopologyTestDriver. (.build builder) config)]
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10 :name "E-test-english" :numbers ["three" "two" "one"]}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 20 :name "G-test-german" :numbers ["eins" "null" "null"]}))
 
       (is (= {:time 10 :name "E-test-english" :colour-component 321}
-             (read-output ^TopologyTestDriver driver "output")))
+             (read-output driver "output")))
       (is (= {:time 20 :name "G-test-german" :colour-component 100}
-             (read-output ^TopologyTestDriver driver "output"))))))
+             (read-output driver "output"))))))
 
-(deftest correlate-rgb-test
-  (let [builder      (StreamsBuilder.)
-        factory      (ConsumerRecordFactory. "input"
-                                             (StringSerializer.)
-                                             (topology/->JsonSerializer))
-        stream       (.stream builder "input" (Consumed/with extractor))]
+(deftest correlate-test
+  (let [builder      (StreamsBuilder.)]
+    (-> (.stream builder input-topic (Consumed/with topology/extractor))
+        (topology/correlate))
 
-    (topology/correlate-rgb stream)
+    (with-open [driver (TopologyTestDriver. (.build builder) config)]
+      ;; First window
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10010 :name "E-test-english" :colour-component 0}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 11000 :name "E-test-english" :colour-component 100}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 12000 :name "G-test-german" :colour-component 200}))
+      ;; Second window
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 22000 :name "E-test-english" :colour-component 50}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 20000 :name "G-test-german" :colour-component 210}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 21000 :name "E-test-english" :colour-component 150}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 25000 :name "G-test-german" :colour-component 220}))
+      ;; Third window
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 30000 :name "E-test-english" :colour-component 65}))
 
-    (with-open [driver (TopologyTestDriver. (.build builder) (config))]
-      (.pipeInput driver (.create factory "input" "name" {:time 10 :name "name" :colour-component 0}))
-      (.pipeInput driver (.create factory "input" "name" {:time 1000 :name "name" :colour-component 100}))
-      (.pipeInput driver (.create factory "input" "name" {:time 2000 :name "name" :colour-component 200}))
-      (.pipeInput driver (.create factory "input" "name" {:time 12000 :name "name" :colour-component 50}))
-      (.pipeInput driver (.create factory "input" "name" {:time 11000 :name "name" :colour-component 150}))
-      (.pipeInput driver (.create factory "input" "name" {:time 13000 :name "name" :colour-component 250}))
+      (testing "Fetch all keys for all time"
+        (with-open [iterator (.fetchAll (.getWindowStore driver topology/pt10s-store) Long/MIN_VALUE Long/MAX_VALUE)]
+          (is (= [[{:time 10010, :name "E-test-english", :colour-component 0}
+                   {:time 11000, :name "E-test-english", :colour-component 100}]
+                  [{:time 22000, :name "E-test-english", :colour-component 50}
+                   {:time 21000, :name "E-test-english", :colour-component 150}]
+                  [{:time 30000, :name "E-test-english", :colour-component 65}]
+                  ;; New keys grouped here
+                  [{:time 12000, :name "G-test-german", :colour-component 200}]
+                  [{:time 20000, :name "G-test-german", :colour-component 210}
+                   {:time 25000, :name "G-test-german", :colour-component 220}]]
 
-      (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "name" 0 20001)]
-        (is (= [[{:time 10 :name "name" :colour-component 0}
-                 {:time 1000 :name "name" :colour-component 100}
-                 {:time 2000 :name "name" :colour-component 200}]
-                [{:time 12000 :name "name" :colour-component 50}
-                 {:time 11000 :name "name" :colour-component 150}
-                 {:time 13000 :name "name" :colour-component 250}]]
-               (mapv #(.value %) (iterator-seq iterator))))))))
+                 (mapv #(.value %) (iterator-seq iterator))))))
 
-(deftest number-stations-to-image-topology-test
-  (let [builder        (StreamsBuilder.)
-        factory        (ConsumerRecordFactory. "input"
-                                               (StringSerializer.)
-                                               (topology/->JsonSerializer))
-        stream         (.stream builder "input" (Consumed/with extractor))]
+      (testing "Fetch by a key for all time"
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" Long/MIN_VALUE Long/MAX_VALUE)]
+          (is (= [[{:time 10010, :name "E-test-english", :colour-component 0}
+                   {:time 11000, :name "E-test-english", :colour-component 100}]
+                  [{:time 22000, :name "E-test-english", :colour-component 50}
+                   {:time 21000, :name "E-test-english", :colour-component 150}]
+                  [{:time 30000, :name "E-test-english", :colour-component 65}]]
 
-    (-> stream
-        (topology/translate-numbers)
-        (topology/correlate-rgb))
+                 (mapv #(.value %) (iterator-seq iterator))))))
 
-    (with-open [driver (TopologyTestDriver. (.build builder) (config))]
-      (doseq [message (take 1000 (generator/generate-messages images/small-image))]
-        (.pipeInput driver (.create factory "input" (:name message) message)))
+      (testing "Fetch by another key for all time"
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "G-test-german" Long/MIN_VALUE Long/MAX_VALUE)]
+          (is (= [[{:time 12000, :name "G-test-german", :colour-component 200}]
+                  [{:time 20000, :name "G-test-german", :colour-component 210}
+                   {:time 25000, :name "G-test-german", :colour-component 220}]]
 
-      (images/radio-stations-to-image (.getWindowStore driver topology/pt10s-store)
-                                      (vec (for [i (range 1000)]
-                                             (str "E-" i)))
-                                      0
-                                      2000000000
-                                      (io/file "resources/output11.png")))))
+                 (mapv #(.value %) (iterator-seq iterator))))))
+
+      (testing "Fetch by key and single full window"
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 10000 (dec 20000))]
+          (is (= [[{:time 10010, :name "E-test-english", :colour-component 0}
+                   {:time 11000, :name "E-test-english", :colour-component 100}]]
+
+                 (mapv #(.value %) (iterator-seq iterator))))))
+
+      (testing "Fetch from empty windows"
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 0 (dec 10000))]
+          (is (= []
+                 (mapv #(.value %) (iterator-seq iterator)))))
+
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "G-test-german" 0 (dec 10000))]
+          (is (= []
+                 (mapv #(.value %) (iterator-seq iterator)))))
+
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "G-test-german" 30000 (dec 40000))]
+          (is (= []
+                 (mapv #(.value %) (iterator-seq iterator)))))
+
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 40000 (dec 50000))]
+          (is (= []
+                 (mapv #(.value %) (iterator-seq iterator)))))))))
+
+(deftest fetch-test
+  (let [builder      (StreamsBuilder.)]
+    (-> (.stream builder input-topic (Consumed/with topology/extractor))
+        (topology/correlate))
+
+    (with-open [driver (TopologyTestDriver. (.build builder) config)]
+      ;; First window
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 10010 :name "E-test-english" :colour-component 0}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 11000 :name "E-test-english" :colour-component 100}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 12000 :name "G-test-german" :colour-component 200}))
+      ;; Second window
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 22000 :name "E-test-english" :colour-component 50}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 20000 :name "G-test-german" :colour-component 210}))
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 21000 :name "E-test-english" :colour-component 150}))
+      (.pipeInput driver (.create record-factory input-topic "G-test-german" {:time 25000 :name "G-test-german" :colour-component 220}))
+      ;; Third window
+      (.pipeInput driver (.create record-factory input-topic "E-test-english" {:time 30000 :name "E-test-english" :colour-component 65}))
+
+      (testing "Fetch all keys for all time"
+        (with-open [iterator (.fetchAll (.getWindowStore driver topology/pt10s-store) Long/MIN_VALUE Long/MAX_VALUE)]
+          (is (= (mapv #(.value %) (iterator-seq iterator))
+                 (topology/fetch-all (.getWindowStore driver topology/pt10s-store) Long/MIN_VALUE Long/MAX_VALUE)))))
+
+      (testing "Fetch by a key for all time"
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" Long/MIN_VALUE Long/MAX_VALUE)]
+          (is (= (mapv #(.value %) (iterator-seq iterator))
+                 (topology/fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" Long/MIN_VALUE Long/MAX_VALUE)))))
+
+      (testing "Fetch by another key for all time"
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "G-test-german" Long/MIN_VALUE Long/MAX_VALUE)]
+          (is (= (mapv #(.value %) (iterator-seq iterator))
+                 (topology/fetch (.getWindowStore driver topology/pt10s-store) "G-test-german" Long/MIN_VALUE Long/MAX_VALUE)))))
+
+      (testing "Fetch by key and single full window"
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 10000 (dec 20000))]
+          (is (= (mapv #(.value %) (iterator-seq iterator))
+                 (topology/fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 10000 (dec 20000))))))
+
+      (testing "Fetch from empty windows"
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 0 (dec 10000))]
+          (is (= (mapv #(.value %) (iterator-seq iterator))
+                 (topology/fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 0 (dec 10000)))))
+
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "G-test-german" 0 (dec 10000))]
+          (is (= (mapv #(.value %) (iterator-seq iterator))
+                 (topology/fetch (.getWindowStore driver topology/pt10s-store) "G-test-german" 0 (dec 10000)))))
+
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "G-test-german" 30000 (dec 40000))]
+          (is (= (mapv #(.value %) (iterator-seq iterator))
+                 (topology/fetch (.getWindowStore driver topology/pt10s-store) "G-test-german" 30000 (dec 40000)))))
+
+        (with-open [iterator (.fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 40000 (dec 50000))]
+          (is (= (mapv #(.value %) (iterator-seq iterator))
+                 (topology/fetch (.getWindowStore driver topology/pt10s-store) "E-test-english" 40000 (dec 50000)))))))))
+
+;; (deftest number-stations-to-image-topology-test
+;;   (let [builder        (StreamsBuilder.)
+;;         factory        (ConsumerRecordFactory. input-topic
+;;                                                (StringSerializer.)
+;;                                                (topology/->JsonSerializer))
+;;         stream         (.stream builder input-topic (Consumed/with topology/extractor))]
+
+;;     (-> stream
+;;         (topology/translate)
+;;         (topology/correlate))
+
+;;     (with-open [driver (TopologyTestDriver. (.build builder) (config))]
+;;       (doseq [message (take 1000 (generator/generate-messages images/small-image))]
+;;         (.pipeInput driver (.create factory input-topic (:name message) message)))
+
+;;       (images/radio-stations-to-image (.getWindowStore driver topology/pt10s-store)
+;;                                       (vec (for [i (range 1000)]
+;;                                              (str "E-" i)))
+;;                                       0
+;;                                       2000000000
+;;                                       (io/file "resources/output11.png")))))
