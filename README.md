@@ -9,6 +9,13 @@ docker-compose up -d
 docker-compose -f docker-compose.tools.yml run kafka-tools
 ```
 
+## Monitor
+
+In a new terminal, view the running kafka logs:
+```sh
+docker-compose logs -f
+```
+
 # Testing, building and running
 
     lein do clean, test
