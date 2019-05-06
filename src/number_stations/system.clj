@@ -19,6 +19,8 @@
            org.apache.kafka.streams.kstream.Consumed
            org.apache.kafka.streams.state.QueryableStoreTypes))
 
+(require 'number-stations.serdes)
+
 (defonce system (atom nil))
 
 (defmethod ig/init-key :httpkit/server
