@@ -18,18 +18,19 @@
     (partition 4 (.getPixels raster 0 0 width height (int-array (* width height 4))))))
 
 (defn render-image [pixels width]
-  (let [height       (int (Math/ceil (/ (count pixels) width)))
-        buffered-img (BufferedImage. width height BufferedImage/TYPE_INT_ARGB)
-        dst-array    (-> buffered-img
-                         .getRaster
-                         .getDataBuffer
-                         .getData)
-        src-array    (int-array (map (fn [[r g b a]] (.getRGB (Color. (or r 0)
-                                                                      (or g 0)
-                                                                      (or b 0)
-                                                                      (or a 255)))) pixels))]
-    (System/arraycopy src-array 0 dst-array 0 (alength src-array))
-    buffered-img))
+  (when (< 0 width)
+    (let [height       (int (Math/ceil (/ (count pixels) width)))
+          buffered-img (BufferedImage. width height BufferedImage/TYPE_INT_ARGB)
+          dst-array    (-> buffered-img
+                           .getRaster
+                           .getDataBuffer
+                           .getData)
+          src-array    (int-array (map (fn [[r g b a]] (.getRGB (Color. (or r 0)
+                                                                        (or g 0)
+                                                                        (or b 0)
+                                                                        (or a 255)))) pixels))]
+      (System/arraycopy src-array 0 dst-array 0 (alength src-array))
+      buffered-img)))
 
 (defn write-output
   ([buffered-img]
@@ -64,4 +65,5 @@
                                       (concat pixel-row (repeat (- (count pixel-row) width) nil)))
                                     pixel-rows)]
      (println :n-pixels (count pixels))
-     (write-output (render-image pixels width) file))))
+     (when (< 0 (count pixels))
+       (write-output (render-image pixels width) file)))))

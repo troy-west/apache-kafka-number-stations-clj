@@ -1,11 +1,11 @@
 {:kafka/streams             {:topology    {"bootstrap.servers" "localhost:9092"
-                                           "application.id"    "number-stations-3"}
-                             :input-topic "input4"
+                                           "application.id"    "number-stations"}
+                             :input-topic "number-stations"
                              :deps        [#ig/ref :number-stations/generator]}
 
  :correlate/store           {:streams #ig/ref :kafka/streams}
 
- :number-stations/generator {:topic    "input4"
+ :number-stations/generator {:topic    "number-stations"
                              :producer {"bootstrap.servers" "localhost:9092"
                                         "key.serializer"    "org.apache.kafka.common.serialization.StringSerializer"
                                         "value.serializer"  "number_stations.serdes.JsonSerializer"}

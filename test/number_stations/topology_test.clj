@@ -1,10 +1,13 @@
 (ns number-stations.topology-test
   (:require [clojure.test :refer [deftest is testing]]
-            [number-stations.topology :as topology])
+            [number-stations.topology :as topology]
+            [number-stations.serdes :as serdes])
   (:import [org.apache.kafka.common.serialization StringDeserializer StringSerializer]
            [org.apache.kafka.streams StreamsBuilder TopologyTestDriver]
            org.apache.kafka.streams.kstream.Consumed
            org.apache.kafka.streams.test.ConsumerRecordFactory))
+
+(compile 'number-stations.serdes)
 
 (def input-topic
   "input")
@@ -15,7 +18,7 @@
 (def record-factory
   (ConsumerRecordFactory. input-topic
                           (StringSerializer.)
-                          (topology/->JsonSerializer)))
+                          (serdes/->JsonSerializer)))
 
 (def config
   (topology/config))
@@ -25,7 +28,7 @@
   (some-> (.readOutput driver
                        topic
                        (StringDeserializer.)
-                       (topology/->JsonDeserializer))
+                       (serdes/->JsonDeserializer))
           .value))
 
 (deftest translate-test

@@ -1,7 +1,6 @@
 (ns number-stations.system
   (:gen-class)
   (:require [aero.core :as aero]
-            [number-stations.serdes]
             [clojure.java.io :as io]
             [hiccup.core :as hiccup]
             [integrant.core :as ig]
@@ -11,21 +10,21 @@
             [org.httpkit.server :as httpkit]
             [reitit.ring :as reitit.ring]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
-            [ring.middleware.params :refer [wrap-params]])
+            [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.file :refer [wrap-file]])
   (:import java.util.Properties
            [org.apache.kafka.clients.admin AdminClient NewTopic]
            [org.apache.kafka.clients.producer KafkaProducer ProducerRecord]
            [org.apache.kafka.streams KafkaStreams KafkaStreams$State StreamsBuilder]
            org.apache.kafka.streams.kstream.Consumed
-           org.apache.kafka.streams.state.QueryableStoreTypes
-           org.apache.kafka.clients.admin.AdminClient))
+           org.apache.kafka.streams.state.QueryableStoreTypes))
 
 (defonce system (atom nil))
 
 (defmethod ig/init-key :httpkit/server
   [_ {:keys [ring/app :httpkit/config]}]
   {:pre [(:port config)]}
-  (let [server (httpkit/run-server app (update config :port #(Integer/parseInt %)))]
+  (let [server (httpkit/run-server app (update config :port #(Integer/parseInt (str %))))]
     (println "Serving on port" (:port config))
     server))
 
@@ -54,7 +53,7 @@
                   [:img {:src (str "generated.png?" (rand-int 1000000)) :width "480"}]]]]))
 
 (defn handler
-  [store]
+  [store base-filename]
   {:get {:parameters {:query {:start int?, :end int?}}
          :handler (fn [req]
                     (let [{:strs [start end]} (:query-params req)]
@@ -68,21 +67,31 @@
                                       2000000000))]
                         (images/radio-stations-to-image store
                                                         start end
-                                                        (io/file "resources/public/generated.png"))
+                                                        (io/file base-filename))
                         {:body    (index start end)
                          :status  200})))}})
 
 (defmethod ig/init-key :ring/app
   [_ {:keys [store]}]
   {:pre [store]}
-  (->> (reitit.ring/ring-handler
-        (reitit.ring/router
-         ["" ["/" (handler store)]])
-        (reitit.ring/routes
-         (reitit.ring/create-resource-handler {:path "/"})
-         (reitit.ring/create-default-handler)))
-       wrap-keyword-params
-       wrap-params))
+  (let [base-filename (format "generated-%s.png" (rand-int 1000000))]
+    (->> (reitit.ring/ring-handler
+          (reitit.ring/router
+
+           [""
+            ["/" (handler store base-filename)]
+            ["/generated.png" (fn [req]
+                                (println :image base-filename (.exists (io/file base-filename)))
+                                {:status 200
+                                 :headers {}
+                                 :body    (io/file base-filename)})]])
+
+          (reitit.ring/routes
+           (reitit.ring/create-resource-handler {:path "/"})
+           (reitit.ring/create-default-handler)))
+
+         wrap-keyword-params
+         wrap-params)))
 
 (defmethod ig/init-key :correlate/store
   [_ {:keys [streams]}]
@@ -104,8 +113,9 @@
         f        (future
                    (println "Generation begun.")
                    (try
-                     (doseq [message (generator/generate-messages images/large-image)]
+                     (doseq [message (generator/generate-messages images/small-image)]
                        (.send producer (ProducerRecord. topic (:name message) message)))
+                     (println "Generation finished.")
                      (catch Exception e
                        (println e)
                        (throw e))))]
