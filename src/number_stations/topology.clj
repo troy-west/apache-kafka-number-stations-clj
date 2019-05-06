@@ -11,8 +11,10 @@
 
 (def pt10s-window (TimeWindows/of (Duration/ofSeconds 10)))
 (def pt10s-store "components-pt10s-store")
+
 (def pt1m-window (TimeWindows/of (Duration/ofMinutes 1)))
 (def pt1m-store "components-pt1m-store")
+
 (def deduplicate-store "deduplicate-store")
 
 (def extractor
@@ -41,8 +43,10 @@
 
 (defn config
   [{:keys [bootstrap-servers application-id] :or {bootstrap-servers "localhost:9092"}}]
+
   ;; force JsonSerde it to exist as a class file, which kafka consumers and producers need.
   (compile 'number-stations.topology)
+
   (doto (Properties.)
     (.putAll {"application.id"      application-id
               "bootstrap.servers"   bootstrap-servers
@@ -55,7 +59,7 @@
                        (apply [_ message]
                          (-> (select-keys message [:time :name :latitude :longitude])
                              (assoc :number
-                                    (translate/ints-to-colour-component (translate/translate-to-numbers message))))))))
+                                    (translate/to-numbers message)))))))
 
 (defn denoise
   [stream]
@@ -73,16 +77,6 @@
                     (apply [_ _ message messages]
                       (conj messages message)))
                   (Materialized/as ^String pt10s-store))))
-
-(defn fetch
-  [store metric-name start end]
-  (with-open [iterator (.fetch store metric-name start end)]
-    (doall (map #(.value %) (iterator-seq iterator)))))
-
-;; (defn fetch-all
-;;   [store start end]
-;;   (with-open [iterator (.fetchAll store start end)]
-;;     (doall (map #(.value %) (iterator-seq iterator)))))
 
 (defn unique-id
   [message]

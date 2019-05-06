@@ -42,17 +42,22 @@
 (defn index
   [start end]
   (hiccup/html [:html
+                [:head
+                 [:style "body { max-width: 38rem; padding: 2rem; margin: auto; }"]]
                 [:body
                  [:form {:method "GET"}
-                  [:label {:for "start"} "Start:"]
-                  [:input {:type "number" :name "start" :value (str (or start 0))}]
+                  [:fieldset
+                   [:div
+                    [:input {:type "number" :name "start" :value (str (or start 0))}]
+                    [:label {:for "start"} "Start timestamp (milliseconds since epoch):"]]
 
-                  [:label {:for "end"} "End:"]
-                  [:input {:type "number" :name "end" :value (str (or end 2000000000))}]
+                   [:div
+                    [:input {:type "number" :name "end" :value (str (or end 2000000000))}]
+                    [:label {:for "end"} "End timestamp (milliseconds since epoch):"]]
 
-                  [:button "View image for time period"]]
+                   [:button "Regenerate and view image from time period"]]]
                  [:div
-                  [:img {:src (str "generated.png?" (rand-int 1000000)) :width "960"}]]]]))
+                  [:img {:src (str "generated.png?" (rand-int 1000000)) :width "480"}]]]]))
 
 (defn handler
   [test-driver]
@@ -110,11 +115,7 @@
 (defn start
   []
   {:pre [(not @system)]}
-  (let [config {:httpkit/server           {:ring/app       (ig/ref :ring/app)
-                                           :httpkit/config {:port 8080}}
-                :ring/app                 {:kafkastreams/test-driver (ig/ref :kafkastreams/test-driver)}
-                :kafkastreams/test-driver {:input-topic    "input"
-                                           :application-id "number-stations"}}]
+  (let [config (ig/read-string (slurp (io/resource "config.edn")))]
     (reset! system (ig/init config))))
 
 (defn stop

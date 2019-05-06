@@ -33,9 +33,9 @@
                      (into [{:time row-time :name "E-123" :longitude 0 :latitude j :number-of-pixels (count row)}]
                            (mapcat (fn [i [r g b]]
                                      (let [time (+ row-time (* rgb-window-duration i))]
-                                       [{:time time :name station-name :longitude 0 :latitude j :numbers (translate/translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str r)))})}
-                                        {:time (+ time 2500) :name station-name :longitude 0 :latitude j :numbers (translate/translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str g)))})}
-                                        {:time (+ time 5000) :name station-name :longitude 0 :latitude j :numbers (translate/translate-to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str b)))})}]))
+                                       [{:time time :name station-name :longitude 0 :latitude j :numbers (translate/to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str r)))})}
+                                        {:time (+ time 2500) :name station-name :longitude 0 :latitude j :numbers (translate/to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str g)))})}
+                                        {:time (+ time 5000) :name station-name :longitude 0 :latitude j :numbers (translate/to-words {:name "E-123" :numbers (pad-to-three (mapv #(Long/parseLong (str %)) (str b)))})}]))
                                    (range)
                                    row))))
                  (range)))))

@@ -1,15 +1,9 @@
 (ns number-stations.topology-test
-  (:require [clojure.java.io :as io]
-            [clojure.test :refer [testing deftest is]]
-;;            [number-stations.images :as images]
-            [number-stations.topology :as topology]
-            [number-stations.generator :as generator])
-  (:import java.util.Properties
-           org.apache.kafka.clients.producer.ProducerRecord
-           [org.apache.kafka.common.serialization StringDeserializer StringSerializer]
+  (:require [clojure.test :refer [deftest is testing]]
+            [number-stations.topology :as topology])
+  (:import [org.apache.kafka.common.serialization StringDeserializer StringSerializer]
            [org.apache.kafka.streams StreamsBuilder TopologyTestDriver]
            org.apache.kafka.streams.kstream.Consumed
-           org.apache.kafka.streams.processor.TimestampExtractor
            org.apache.kafka.streams.test.ConsumerRecordFactory))
 
 (def input-topic

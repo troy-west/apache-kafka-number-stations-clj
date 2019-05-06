@@ -39,9 +39,14 @@
                   "png"
                   file)))
 
+(defn fetch
+  [store k start end]
+  (with-open [iterator (.fetch store k start end)]
+    (doall (map #(.value %) (iterator-seq iterator)))))
+
 (defn radio-stations-to-image
   [store radio-station-names start end file]
-  (let [radio-station-rows (map #(topology/fetch store % start end) radio-station-names)
+  (let [radio-station-rows (map #(fetch store % start end) radio-station-names)
         pixel-rows         (for [row radio-station-rows]
                              (for [pixel row
                                    :when (= 3 (count pixel))]
