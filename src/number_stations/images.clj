@@ -8,7 +8,7 @@
 (defonce small-image
   (ImageIO/read (io/resource "small.png")))
 
-(defonce source-image
+(defonce large-image
   (ImageIO/read (io/resource "source.png")))
 
 (defn pixel-seq [buffered-img]

@@ -102,7 +102,7 @@
         f        (future
                    (println "Generation begun.")
                    (try
-                     (doseq [message (generator/generate-messages images/small-image)]
+                     (doseq [message (generator/generate-messages images/large-image)]
                        (.send producer (ProducerRecord. topic (:name message) message)))
                      (catch Exception e
                        (println e)
