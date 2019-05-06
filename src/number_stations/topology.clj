@@ -41,7 +41,7 @@
 
 (defn config
   [{:keys [bootstrap-servers application-id] :or {bootstrap-servers "localhost:9092"}}]
-  ;; force JsonSerde it to exist
+  ;; force JsonSerde it to exist as a class file, which kafka consumers and producers need.
   (compile 'number-stations.topology)
   (doto (Properties.)
     (.putAll {"application.id"      application-id
@@ -54,14 +54,14 @@
   (.mapValues stream (reify ValueMapper
                        (apply [_ message]
                          (-> (select-keys message [:time :name :latitude :longitude])
-                             (assoc :translated
+                             (assoc :number
                                     (translate/ints-to-colour-component (translate/translate-to-numbers message))))))))
 
 (defn denoise
   [stream]
   (.filter stream (reify Predicate
                     (test [_ _ v]
-                      (boolean (:translated v))))))
+                      (boolean (:number v))))))
 
 (defn correlate
   [stream]
@@ -89,14 +89,12 @@
   (str (:time message) "-" (:name message)))
 
 (defn non-duplicate
-  [ctx window-size k v]
+  [state-store timestamp window-size k v]
   (let [id          (unique-id v)
-        timestamp   (.timestamp @ctx)
-        state-store (.getStateStore @ctx deduplicate-store)
         duplicate?  (with-open [result (.fetch state-store
                                                id
-                                               (- timestamp (.toMillis window-size))
-                                               (+ timestamp (.toMillis window-size)))]
+                                               (- timestamp window-size)
+                                               (+ timestamp window-size))]
                       (.hasNext result))]
     (.put state-store id timestamp timestamp)
     (when-not duplicate?
@@ -120,6 +118,10 @@
                         (init [_ context]
                           (reset! ctx context))
                         (transform [_ k v]
-                          (non-duplicate ctx window-size k v))
+                          (non-duplicate (.getStateStore @ctx deduplicate-store)
+                                         (.toMillis window-size)
+                                         (.timestamp @ctx)
+                                         k
+                                         v))
                         (close [_])))))
                 (into-array String [deduplicate-store]))))
