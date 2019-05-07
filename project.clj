@@ -14,6 +14,4 @@
                  [hiccup "1.0.5"]
                  [aero "1.1.3"]]
 
-  :aot [numbers.serdes]
-
-  :main number-stations.system)
+  :aot [numbers.serdes])
