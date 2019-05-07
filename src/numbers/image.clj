@@ -5,8 +5,6 @@
            (java.awt.image BufferedImage RenderedImage)
            (java.awt Color)))
 
-
-
 ;; Width 960, Height 540.
 (defonce source
   (ImageIO/read (io/resource "source.png")))
@@ -56,4 +54,4 @@
 
 (defn persist
   [img rand-part]
-  (ImageIO/write ^RenderedImage img "png" (io/file (str "generated-img" rand-file-part ".png"))))
+  (ImageIO/write ^RenderedImage img "png" (io/file (str "generated-img" rand-part ".png"))))
