@@ -33,15 +33,17 @@
   [^KStream events]
   (.mapValues events (reify ValueMapper
                        (apply [_ v]
-                         (assoc v :value (tx/number (:type v) (:value v)))))))
+                         (tx/translate v)))))
 
 (defn correlate
   [^KStream events]
   (-> (.groupByKey events)
       (.windowedBy (TimeWindows/of 10000))
       (.aggregate (reify Initializer
-                    (apply [_] []))
+                    (apply [_] nil))
                   (reify Aggregator
                     (apply [_ _ v agg]
-                      (conj agg v)))
+                      (if (not agg)
+                        v
+                        (update agg :content conj (first (:content v))))))
                   (Materialized/as "PT10S-Store"))))

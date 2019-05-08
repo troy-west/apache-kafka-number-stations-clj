@@ -21,6 +21,10 @@
   (let [tx (get number-index type)]
     (Integer/parseInt (apply str (map #(get tx %) words)))))
 
+(defn translate
+  [message]
+  (assoc message :content [(number (:type message) (:content message))]))
+
 (defn known?
   [type]
   (contains? number-index type))
