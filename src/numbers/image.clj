@@ -19,30 +19,44 @@
         height (.getHeight raster)]
     (partition 4 (.getPixels raster 0 0 width height (int-array (* width height 4))))))
 
+(defn reading
+  [time type name long lat content]
+  {:time    time
+   :type    type
+   :name    name
+   :long    long
+   :lat     lat
+   :content content})
+
+(defn scott-base
+  [n]
+  (map (fn [idx]
+         (reading (+ (* idx 10000) 1557125670763) "ENG" "NZ-1" -78 166 (rand-int 3)))
+       (range n)))
+
 (defn fuzz
-  [idx station]
+  [secret idx station]
   (let [start-at 1557125670763
         s-type   (get tx/types (mod idx 3))
-        s-prec   (get tx/prefixes (mod idx 3))]
-    (reduce into []
-            (for [reading (reduce-kv (fn [ret i item]
-                                       (conj ret {:time (+ start-at (* i 10000))
-                                                  :type s-type
-                                                  :name (str s-prec "-" idx)
-                                                  :long (int (+ -135 (/ idx 2)))
-                                                  :lat  (int (+ -45 (/ idx 4)))
-                                                  :elts (map #(tx/words s-type %1) (take 3 item))}))
-                                     []
-                                     (vec station))]
-              (let [new-time (+ (:time reading) (int (rand 8000)))]
-                (map-indexed (fn [idx number]
-                               (assoc reading :elts number :time (+ new-time (* idx 150))))
-                             (:elts reading)))))))
+        s-name   (str (get tx/prefixes (mod idx 3)) "-" idx)
+        s-long   (int (+ -135 (/ idx 2)))
+        s-lat    (int (+ -45 (/ idx 6)))]
+    (reduce-kv (fn [ret i item]
+                 (let [time (+ start-at (* i 10000) (int (rand 8000)))
+                       [e1 e2 e3] (map #(tx/words s-type %1) (take 3 item))]
+                   (conj ret
+                         (reading time s-type s-name s-long s-lat e1)
+                         (reading (+ time 25) s-type s-name s-long s-lat e2)
+                         (reading (+ time 50) s-type s-name s-long s-lat e3))))
+               []
+               (vec station))))
 
 (defn obsfuscate
   [image]
-  (let [stations (partition (width image) (pixels image))
-        readings (sort-by :time (reduce into [] (map-indexed fuzz stations)))]
+  (let [width    (width image)
+        stations (partition width (pixels image))
+        secret   (scott-base width)
+        readings (sort-by :time (reduce into [] (map-indexed (partial fuzz secret) stations)))]
     (into (vec (interleave readings
                            [{:time (+ 1 (:time (first readings))) :type "UXX" :name "X-RAY" :elts "base"}
                             {:time (+ 1 (:time (second readings))) :type "UXX" :name "X-RAY" :elts "base"}]))
