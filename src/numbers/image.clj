@@ -33,7 +33,7 @@
   (reduce into
           []
           (map (fn [idx]
-                 (let [time  (+ (* idx 10000) 1557125670763)
+                 (let [time  (+ (* idx 10000) 1557125670799)
                        value (rand-int 3)]
                    [(reading time "ENG" "NZ-1" -78 166 value)
                     (reading (+ 25 time) "ENG" "NZ-1" -78 166 value)
@@ -75,8 +75,8 @@
                                                       (map (fn [reading]
                                                              (update reading :value #(tx/words "ENG" %1))) secret))))]
     (into (vec (interleave readings
-                           [{:time (+ 1 (:time (first readings))) :type "UXX" :name "X-RAY" :elts "base"}
-                            {:time (+ 1 (:time (second readings))) :type "UXX" :name "X-RAY" :elts "base"}]))
+                           [{:time (+ 1 (:time (first readings))) :type "UXX" :name "X-RAY"}
+                            {:time (+ 1 (:time (second readings))) :type "UXX" :name "X-RAY"}]))
           (drop 2 readings))))                              ;; remove drop 2 for duplicates
 
 (defn render

@@ -23,11 +23,11 @@
   [^StreamsBuilder builder]
   (.stream builder "radio-logs" (Consumed/with ^TimestampExtractor extractor)))
 
-(defn filter-recognized
+(defn filter-known
   [^KStream events]
   (.filter events (reify Predicate
                     (test [_ _ v]
-                      (tx/recognise? (:type v))))))
+                      (tx/known? (:type v))))))
 
 (defn translate
   [^KStream events]

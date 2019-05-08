@@ -21,6 +21,6 @@
   (let [tx (get number-index type)]
     (Integer/parseInt (apply str (map #(get tx %) words)))))
 
-(defn recognise?
+(defn known?
   [type]
   (contains? number-index type))
