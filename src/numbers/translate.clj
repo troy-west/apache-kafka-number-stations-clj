@@ -11,10 +11,10 @@
                  "GER" {\0 "null" \7 "sieben" \1 "eins" \4 "vier" \6 "sechs" \3 "drei" \2 "zwei" \9 "neun" \5 "fünf" \8 "acht"}
                  "MOR" {\0 "-----" \7 "--..." \1 ".----" \4 "....-" \6 "-...." \3 "...--" \2 "..---" \9 "----." \5 "....." \8 "---.."}})
 
-(defn words
-  [type number]
-  (let [tx (get word-index type)]
-    (mapv #(get tx %) (str number))))
+(def words
+  (memoize (fn [type number]
+             (let [tx (get word-index type)]
+               (mapv #(get tx %) (str number))))))
 
 (defn number
   [type words]

@@ -41,8 +41,12 @@
 
 (defn obsfuscate
   [image]
-  (let [stations (partition (width image) (pixels image))]
-    (sort-by :time (reduce into [] (map-indexed fuzz stations)))))
+  (let [stations (partition (width image) (pixels image))
+        readings (sort-by :time (reduce into [] (map-indexed fuzz stations)))]
+    (into (vec (interleave readings
+                           [{:time (+ 1 (:time (first readings))) :type "UXX" :name "X-RAY" :elts "base"}
+                            {:time (+ 1 (:time (second readings))) :type "UXX" :name "X-RAY" :elts "base"}]))
+          (drop 2 readings))))                              ;; remove drop 2 for duplicates
 
 (defn render
   [pixels]
