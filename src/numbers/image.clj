@@ -35,16 +35,16 @@
           (map (fn [idx]
                  (let [time    (+ (* idx 10000) 1557125670799)
                        content (rand-int 3)]
-                   [(reading time "ENG" "NZ-1" -78 166 content)
-                    (reading (+ 25 time) "ENG" "NZ-1" -78 166 content)
-                    (reading (+ 50 time) "ENG" "NZ-1" -78 166 content)]))
+                   [(reading time "ENG" "001-NZ" -78 166 content)
+                    (reading (+ 25 time) "ENG" "001-NZ" -78 166 content)
+                    (reading (+ 50 time) "ENG" "001-NZ" -78 166 content)]))
                (range n))))
 
 (defn fuzz
   [secret idx station]
   (let [start-at 1557125670763
         s-type   (get tx/types (mod idx 3))
-        s-name   (str (get tx/prefixes (mod idx 3)) "-" idx)
+        s-name   (str (format "%03d" idx) "-" (get tx/suffix (mod idx 3)))
         s-long   (int (+ -135 (/ idx 2)))
         s-lat    (int (+ -45 (/ idx 6)))]
     (reduce-kv (fn [ret i item]
@@ -90,5 +90,20 @@
     img))
 
 (defn persist
-  [img rand-part]
-  (ImageIO/write ^RenderedImage img "png" (io/file (str "generated-img" rand-part ".png"))))
+  [img]
+  (ImageIO/write ^RenderedImage img "png" (io/file (str "generated-img.png"))))
+
+(defn generate
+  []
+  (->> (obsfuscate source)
+       (filter #(not= "UXX" (:type %1)))
+       (filter #(not= "001-NZ" (:name %1)))
+       (map tx/translate)
+       (group-by :name)
+       (vals)
+       (reduce into [])
+       (sort-by (juxt :name :time))
+       (partition 3)
+       (map #(reduce (fn [ret v] (into ret (:content v))) [] %1))
+       (render)
+       (persist)))
