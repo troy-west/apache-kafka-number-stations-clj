@@ -5,9 +5,12 @@
            (java.awt.image BufferedImage RenderedImage)
            (java.awt Color)))
 
-;; Width 960, Height 540.
 (defonce source
-  (ImageIO/read (io/resource "source.png")))
+  (ImageIO/read (io/resource "source.png")))                ;; Width 960, Height 540.
+
+(defn width
+  [^BufferedImage img]
+  (.getWidth (.getData img)))
 
 (defn pixels
   [^BufferedImage img]
@@ -23,28 +26,27 @@
         s-prec   (get tx/prefixes (mod idx 3))]
     (reduce into []
             (for [reading (reduce-kv (fn [ret i item]
-                                       (conj ret {:time      (+ start-at (* i 10000))
-                                                  :type      s-type
-                                                  :name      (str s-prec "-" idx)
-                                                  ;;     :longitude (int (+ 45 (/ idx 2)))
-                                                  ;;     :latitude  (int (- 315 (/ idx 2)))
-                                                  :numbers   (map #(tx/words s-type %1) (take 3 item))}))
+                                       (conj ret {:time (+ start-at (* i 10000))
+                                                  :type s-type
+                                                  :name (str s-prec "-" idx)
+                                                  :long (int (+ -135 (/ idx 2)))
+                                                  :lat  (int (+ -45 (/ idx 4)))
+                                                  :elts (map #(tx/words s-type %1) (take 3 item))}))
                                      []
                                      (vec station))]
               (let [new-time (+ (:time reading) (int (rand 8000)))]
                 (map-indexed (fn [idx number]
-                               (assoc reading :numbers number :time (+ new-time (* idx 150))))
-                             (:numbers reading)))))))
+                               (assoc reading :elts number :time (+ new-time (* idx 150))))
+                             (:elts reading)))))))
 
 (defn obsfuscate
-  []
-  (let [data      (pixels source)
-        stations  (partition 960 data)]
-    (map-indexed fuzz stations)))
+  [image]
+  (let [stations (partition (width image) (pixels image))]
+    (sort-by :time (reduce into [] (map-indexed fuzz stations)))))
 
 (defn render
-  [pixels width]
-  (let [img       (BufferedImage. width 540 BufferedImage/TYPE_INT_ARGB)
+  [pixels]
+  (let [img       (BufferedImage. 960 540 BufferedImage/TYPE_INT_ARGB)
         dst-array (.getData (.getDataBuffer (.getRaster img)))
         src-array (int-array (map (fn [[r g b]]
                                     (.getRGB (Color. r g b 255)))

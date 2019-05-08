@@ -40,17 +40,15 @@
 (deftest translate-test
   (let [builder (StreamsBuilder.)]
     (some-> (topology/stream builder)
+            topology/filter-recognized
             topology/translate
             (.to "output"))
 
     (with-open [driver (TopologyTestDriver. (.build builder) topology/config)]
       (.pipeInput driver (.create record-factory "radio-logs" "E-test-english" {:time 10 :type "ENG" :name "E-test-english" :numbers ["three" "two" "one"]}))
-      (.pipeInput driver (.create record-factory "radio-logs" "X-unknown" {:time 20 :name "X-unknown" :numbers ["unicorn" "camel" "dropbear"]}))
       (.pipeInput driver (.create record-factory "radio-logs" "G-test-german" {:time 30 :type "GER" :name "E-test-german" :numbers ["eins" "null" "null"]}))
 
       (is (= {:time 10 :type "ENG" :name "E-test-english" :number 321}
-             (read-output driver "output")))
-      (is (= {:time 20 :name "X-unknown" :number nil}
              (read-output driver "output")))
       (is (= {:time 30 :type "GER" :name "E-test-german" :number 100}
              (read-output driver "output")))
@@ -130,22 +128,3 @@
         (with-open [iterator (.fetch (.getWindowStore driver "PT10S-Store") "E-test-english" 40000 (dec 50000))]
           (is (= []
                  (mapv #(.value %) (iterator-seq iterator)))))))))
-
-(deftest deduplicate-test
-  (let [builder (StreamsBuilder.)]
-    (some-> (topology/stream builder)
-            (topology/deduplicate builder)
-            (.to "output"))
-
-    (with-open [driver (TopologyTestDriver. (.build builder) topology/config)]
-      (.pipeInput driver (.create record-factory "radio-logs" "E-test-english" {:time 10 :type "ENG" :name "E-test-english" :number 321}))
-      (.pipeInput driver (.create record-factory "radio-logs" "G-test-german" {:time 30 :type "GER" :name "E-test-german" :number 100}))
-      (.pipeInput driver (.create record-factory "radio-logs" "G-test-german" {:time 30 :type "GER" :name "E-test-german" :number 100}))
-      (.pipeInput driver (.create record-factory "radio-logs" "E-test-english" {:time 10 :type "ENG" :name "E-test-english" :number 321}))
-
-      (is (= {:time 10 :type "ENG" :name "E-test-english" :number 321}
-             (read-output driver "output")))
-      (is (= {:time 30 :type "GER" :name "E-test-german" :number 100}
-             (read-output driver "output")))
-      (is (= nil
-             (read-output driver "output"))))))

@@ -1,13 +1,13 @@
 (ns numbers.radio
   (:require [numbers.image :as image]
             [numbers.kafka :as kafka])
-  (:import (org.apache.kafka.clients.producer ProducerRecord KafkaProducer)))
+  (:import (org.apache.kafka.clients.producer ProducerRecord)))
 
 (defn listen
   []
-  (sort-by :time (reduce into [] (image/obsfuscate))))
+  (image/obsfuscate image/source))
 
-(defn explore
+(defn sample
   []
   (take 20 (listen)))
 
@@ -15,4 +15,6 @@
   "Send the radio burst to the radio-logs topic on Kafka"
   []
   ;; implement me!
-  )
+  (let [producer (kafka/producer)]
+    (doseq [message (listen)]
+      (.send producer (ProducerRecord. "radio-logs" (:name message) message)))))

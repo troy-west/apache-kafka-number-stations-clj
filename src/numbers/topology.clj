@@ -1,6 +1,7 @@
 (ns numbers.topology
+  (:require [numbers.translate :as tx])
   (:import (org.apache.kafka.streams.processor TimestampExtractor)
-           (org.apache.kafka.streams.kstream Consumed)
+           (org.apache.kafka.streams.kstream Consumed KStream Predicate ValueMapper Aggregator TimeWindows Initializer Materialized)
            (org.apache.kafka.streams StreamsBuilder)
            (java.util Properties)))
 
@@ -12,24 +13,36 @@
                     "default.value.serde" "numbers.serdes.JsonSerde"})
     props))
 
-;; TODO implement me first
+
 (def extractor
   (reify TimestampExtractor
-    (extract [record k v])))
+    (extract [_ record _]
+      (:time (.value record)))))
 
 (defn stream
   [^StreamsBuilder builder]
   (.stream builder "radio-logs" (Consumed/with ^TimestampExtractor extractor)))
 
-;; TODO implement me to get the tests running
 (defn filter-recognized
-  [events])
+  [^KStream events]
+  (.filter events (reify Predicate
+                    (test [_ _ v]
+                      (tx/recognise? (:type v))))))
 
 (defn translate
-  [events])
+  [^KStream events]
+  (.mapValues events (reify ValueMapper
+                       (apply [_ v]
+                         (-> (assoc v :number (tx/number (:type v) (:numbers v)))
+                             (dissoc :numbers))))))
 
 (defn correlate
-  [events])
-
-(defn deduplicate
-  [builder events])
+  [^KStream events]
+  (-> (.groupByKey events)
+      (.windowedBy (TimeWindows/of 10000))
+      (.aggregate (reify Initializer
+                    (apply [_] []))
+                  (reify Aggregator
+                    (apply [_ _ v agg]
+                      (conj agg v)))
+                  (Materialized/as "PT10S-Store"))))
