@@ -93,7 +93,7 @@
   [img]
   (ImageIO/write ^RenderedImage img "png" (io/file (str "generated-img.png"))))
 
-(defn generate
+(defn roundtrip
   []
   (->> (obsfuscate source)
        (filter #(not= "UXX" (:type %1)))
