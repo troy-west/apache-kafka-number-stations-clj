@@ -33,8 +33,7 @@
   [^KStream events]
   (.mapValues events (reify ValueMapper
                        (apply [_ v]
-                         (-> (assoc v :number (tx/number (:type v) (:numbers v)))
-                             (dissoc :numbers))))))
+                         (assoc v :value (tx/number (:type v) (:value v)))))))
 
 (defn correlate
   [^KStream events]

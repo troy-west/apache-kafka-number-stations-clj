@@ -50,8 +50,8 @@
 
 (deftest filter-test
   (let [builder (StreamsBuilder.)]
-    (-> (topology/stream builder)
-        ^KStream (topology/filter-known)
+    (-> ^KStream (topology/stream builder)
+        (topology/filter-known)
         (.to "output"))
 
     (with-open [driver (TopologyTestDriver. (.build builder) topology/config)]
@@ -68,20 +68,20 @@
 (deftest translate-test
   (let [builder (StreamsBuilder.)]
     (some-> (topology/stream builder)
-            topology/filter-known
-            topology/translate
+            (topology/filter-known)
+            (topology/translate)
             (.to "output"))
 
     (with-open [driver (TopologyTestDriver. (.build builder) topology/config)]
-      (.pipeInput driver (.create record-factory "radio-logs" "E-test-english" {:time 10 :type "ENG" :name "E-test-english" :numbers ["three" "two" "one"]}))
-      (.pipeInput driver (.create record-factory "radio-logs" "G-test-german" {:time 30 :type "GER" :name "E-test-german" :numbers ["eins" "null" "null"]}))
 
-      (is (= {:time 10 :type "ENG" :name "E-test-english" :number 321}
-             (read-output driver)))
-      (is (= {:time 30 :type "GER" :name "E-test-german" :number 100}
-             (read-output driver)))
-      (is (= nil
-             (read-output driver))))))
+      (send-messages driver test-messages)
+
+      (is (= [{:time 1557125670789 :type "GER" :name "G-85" :long -92 :lat -30 :value 106}
+              {:time 1557125670794 :type "MOR" :name "M-425" :long 77 :lat 25 :value 59}
+              {:time 1557125670799 :type "ENG" :name "NZ-1" :long -78 :lat 166 :value 2}
+              {:time 1557125670807 :type "ENG" :name "E-159" :long -55 :lat -18 :value 35}
+              {:time 1557125670812 :type "ENG" :name "E-426" :long 78 :lat 26 :value 63}]
+             (read-output driver 5))))))
 
 (deftest correlate-test
   (let [builder (StreamsBuilder.)]
