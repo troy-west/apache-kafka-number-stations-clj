@@ -33,7 +33,7 @@ radio-logs
 Describe the new topic:
 
 ```sh
-# ./bin/kafka-topics.sh --bootstrap-server kafka-1:19092 --describe --topic x-topic
+# ./bin/kafka-topics.sh --bootstrap-server kafka-1:19092 --describe --topic radio-logs
 
 Topic:radio-logs	PartitionCount:12	ReplicationFactor:3	Configs:
 	Topic: radio-logs	Partition: 0	Leader: 3	Replicas: 3,2,1	Isr: 3,2,1
