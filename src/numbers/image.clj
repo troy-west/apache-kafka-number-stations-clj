@@ -87,8 +87,8 @@
   [pixels]
   (let [img       (BufferedImage. 960 540 BufferedImage/TYPE_INT_ARGB)
         dst-array (.getData (.getDataBuffer (.getRaster img)))
-        src-array (int-array (map (fn [[^int r ^int g ^int b]]
-                                    (.getRGB (Color. r g b 255)))
+        src-array (int-array (map (fn [[r g b]]
+                                    (.getRGB (Color. ^int (or r 0) ^int (or g 0) ^int (or b 0) 255)))
                                   pixels))]
     (System/arraycopy src-array 0 dst-array 0 (alength src-array))
     img))

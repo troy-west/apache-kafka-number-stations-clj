@@ -91,5 +91,6 @@
           (reduce into
                   []
                   (map (fn [station]
-                         (iterator-seq (.fetch ^ReadOnlyWindowStore store station ^long start ^long end)))
+                         (with-open [iter (.fetch ^ReadOnlyWindowStore store station ^long start ^long end)]
+                           (doall (iterator-seq iter))))
                        stations))))))
