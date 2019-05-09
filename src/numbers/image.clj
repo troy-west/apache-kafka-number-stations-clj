@@ -95,7 +95,7 @@
 
 (defn persist
   [img]
-  (ImageIO/write ^RenderedImage img "png" (io/file (str "generated-img.png"))))
+  (ImageIO/write ^RenderedImage img "png" (io/file (str "resources/public/generated-img.png"))))
 
 (defn roundtrip
   []

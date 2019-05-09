@@ -82,7 +82,5 @@
           (reduce into
                   []
                   (map (fn [station]
-                         (let [seccy (iterator-seq (.fetch ^ReadOnlyWindowStore store station start end))]
-                           (prn (count seccy))
-                           seccy))
+                         (iterator-seq (.fetch ^ReadOnlyWindowStore store station start end)))
                        stations))))))
