@@ -56,6 +56,13 @@ Topic:radio-logs	PartitionCount:12	ReplicationFactor:3	Configs:
 
 Now, from within this project:
 
+Take a look at the Number Station data
 ```
-(radio/explore)
+(radio/sample)
 ```
+
+Then:
+
+* Send that data to your local Kafka Cluster
+* Complete the Topology tests using the TopologyTestRunner
+* Build the application and run it against local Kafka
