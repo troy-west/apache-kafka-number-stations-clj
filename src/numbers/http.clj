@@ -5,7 +5,9 @@
             [reitit.ring :as reitit.ring]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.params :refer [wrap-params]]
-            [ring.middleware.file :refer [wrap-file]]))
+            [ring.middleware.file :refer [wrap-file]]
+            [numbers.compute :as compute]
+            [numbers.image :as image]))
 
 (defn index
   [start end]
@@ -25,7 +27,7 @@
 
                    [:button "Regenerate and view image from time period"]]]
                  [:div
-                  [:img {:src (str "generated.png?" (rand-int 1000000)) :width "560"}]]]]))
+                  [:img {:src "generated.png" :width "560"}]]]]))
 
 (defn handler
   [streams rand-part]
@@ -36,7 +38,8 @@
                                           (catch Exception _ 1557125660763))
                                end   (try (Long/parseLong end)
                                           (catch Exception _ 1557135288803))]
-()
+                           (image/persist (image/render (map :content (compute/slice streams)))
+                                          rand-part)
                            ;; TODO: render image
                            {:body   (index start end)
                             :status 200})))}})

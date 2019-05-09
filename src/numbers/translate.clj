@@ -1,7 +1,6 @@
 (ns numbers.translate)
 
 (def types ["ENG" "GER" "MOR"])
-(def suffix ["E" "G" "M"])
 
 (def number-index {"ENG" {"six" "6" "three" "3" "two" "2" "seven" "7" "zero" "0" "five" "5" "eight" "8" "one" "1" "nine" "9" "four" "4"}
                    "GER" {"fünf" "5" "acht" "8" "sechs" "6" "null" "0" "vier" "4" "eins" "1" "zwei" "2" "sieben" "7" "drei" "3" "neun" "9"}

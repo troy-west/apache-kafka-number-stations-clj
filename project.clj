@@ -16,4 +16,4 @@
 
   :aot [numbers.serdes numbers.system]
 
-  :main [numbers.system])
+  )
