@@ -108,28 +108,12 @@
           (is (= []
                  (mapv #(.value %) (iterator-seq iterator)))))))))
 
-(deftest branch-test-scott-base
-  (let [builder (StreamsBuilder.)]
-    (-> ^KStream (topology/stream builder)
-        (topology/filter-known)
-        (topology/branch)
-        first
-        (.to "output"))
-
-    (with-open [driver (TopologyTestDriver. (.build builder) topology/config)]
-
-      (send-messages driver test-messages)
-
-      (is (= [{:time 1557125670799 :type "ENG" :name "NZ1" :long 166 :lat -78 :content ["two"]}
-              {:time 1557125670824 :type "ENG" :name "NZ1" :long 166 :lat -78 :content ["two"]}]
-             (read-output driver 2))))))
-
 (deftest branch-test-rest-of-world
   (let [builder (StreamsBuilder.)]
     (-> ^KStream (topology/stream builder)
         (topology/filter-known)
-        (topology/branch)
-        second
+        (topology/branch-scott-base)
+        first
         (.to "output"))
 
     (with-open [driver (TopologyTestDriver. (.build builder) topology/config)]
@@ -153,3 +137,19 @@
               {:time 1557125670842 :type "MOR" :name "20" :long -125 :lat -41 :content ["...--"]}
               {:time 1557125670843 :type "GER" :name "199" :long -35 :lat -11 :content ["eins" "vier"]}]
              (read-output driver 16))))))
+
+(deftest branch-test-scott-base
+  (let [builder (StreamsBuilder.)]
+    (-> ^KStream (topology/stream builder)
+        (topology/filter-known)
+        (topology/branch-scott-base)
+        second
+        (.to "output"))
+
+    (with-open [driver (TopologyTestDriver. (.build builder) topology/config)]
+
+      (send-messages driver test-messages)
+
+      (is (= [{:time 1557125670799 :type "ENG" :name "NZ1" :long 166 :lat -78 :content ["two"]}
+              {:time 1557125670824 :type "ENG" :name "NZ1" :long 166 :lat -78 :content ["two"]}]
+             (read-output driver 2))))))

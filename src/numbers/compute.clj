@@ -52,16 +52,16 @@
                         (update agg :content conj (first (:content v))))))
                   (Materialized/as ^String store-name))))
 
-(defn branch
+(defn branch-scott-base
   "Branch between messages above and below -75 latitude"
   [^KStream events]
   (.branch events (into-array Predicate
                               [(reify Predicate
                                  (test [_ _ message]
-                                   (< (:lat message) -75)))
+                                   (>= (:lat message) -75)))
                                (reify Predicate
                                  (test [_ _ message]
-                                   (>= (:lat message) -75)))])))
+                                   (< (:lat message) -75)))])))
 
 (defn join
   [^KStream events])
