@@ -40,7 +40,7 @@
 
 (defn correlate
   "Correlate the input stream, grouping by station-id then windowing every 10s"
-  [^KStream events]
+  [^KStream events store-name]
   (-> (.groupByKey events)
       (.windowedBy (TimeWindows/of 10000))
       (.aggregate (reify Initializer
@@ -50,15 +50,18 @@
                       (if (not agg)
                         v
                         (update agg :content conj (first (:content v))))))
-                  (Materialized/as "PT10S-Store"))))
+                  (Materialized/as ^String store-name))))
 
 (defn branch
   "Branch between messages above and below -75 latitude"
   [^KStream events]
-  (.branch events (into-array Predicate [(reify Predicate
-                                           (test [_ _ message]
-                                             (prn (:lat message))
-                                             (< (:lat message) -75)))])))
+  (.branch events (into-array Predicate
+                              [(reify Predicate
+                                 (test [_ _ message]
+                                   (< (:lat message) -75)))
+                               (reify Predicate
+                                 (test [_ _ message]
+                                   (>= (:lat message) -75)))])))
 
 (defn join
   [^KStream events])
@@ -69,7 +72,7 @@
     (-> (stream builder)
         (filter-known)
         (translate)
-        (correlate))
+        (correlate "PT10S-Store"))
     (.build builder)))
 
 (defn start!
