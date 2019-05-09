@@ -46,7 +46,7 @@
                             :status 200})))}})
 
 (defn start!
-  [streams port]
+  [port streams]
   (let [rand-part (rand-int 10000)
         app       (->> (reitit.ring/ring-handler
                         (reitit.ring/router
