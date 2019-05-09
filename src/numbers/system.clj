@@ -5,13 +5,13 @@
   (:gen-class))
 
 (defn start!
-  []
-  (http/start! (compute/start!)))
+  [port]
+  (http/start! port (compute/start!)))
 
 (defn -main
-  [& _]
+  [& args]
   (Thread/setDefaultUncaughtExceptionHandler
    (reify Thread$UncaughtExceptionHandler
      (uncaughtException [_ thread ex]
        (log/error ex "uncaught exception on" (.getName thread)))))
-  (start!))
+  (start! (or (some-> (first args) Integer/parseInt) 8080)))

@@ -95,7 +95,7 @@
 
 (defn persist
   ([img]
-   (ImageIO/write ^RenderedImage img "png" (io/file (str "resources/public/generated-img.png"))))
+   (ImageIO/write ^RenderedImage img "png" (io/file (str "resources/public/generated.png"))))
   ([img rand-part]
    (ImageIO/write ^RenderedImage img "png" (io/file (str (format "resources/public/generated-%s.png" rand-part))))))
 

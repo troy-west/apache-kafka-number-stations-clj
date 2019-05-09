@@ -7,7 +7,8 @@
             [reitit.ring :as reitit.ring]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.params :refer [wrap-params]]
-            [ring.middleware.file :refer [wrap-file]]))
+            [ring.middleware.file :refer [wrap-file]]
+            [clojure.tools.logging :as log]))
 
 (defn index
   [start end]
@@ -38,30 +39,32 @@
                                           (catch Exception _ 1557125660763))
                                end   (try (Long/parseLong end)
                                           (catch Exception _ 1557135288803))]
+                           (log/info "generating image:" (format "resources/public/generated-%s.png" rand-part))
                            (image/persist (image/render (map :content (compute/slice streams)))
                                           rand-part)
-                           ;; TODO: render image
                            {:body   (index start end)
                             :status 200})))}})
 
 (defn start!
-  [streams]
-  (let [rand-part (format "generated-%s.png" (rand-int 10000))
+  [streams port]
+  (let [rand-part (rand-int 10000)
         app       (->> (reitit.ring/ring-handler
                         (reitit.ring/router
                          [""
                           ["/" (handler streams rand-part)]
                           ["/generated.png"
                            (fn [_]
-                             {:status  200
-                              :headers {}
-                              :body    (io/file (format "public/resources/generated-%s.png" rand-part))})]])
+                             (let [filename (format "resources/public/generated-%s.png" rand-part)]
+                               (log/info "fetching image :" filename)
+                               {:status  200
+                                :headers {}
+                                :body    (io/file filename)}))]])
                         (reitit.ring/routes
                          (reitit.ring/create-resource-handler {:path "/"})
                          (reitit.ring/create-default-handler)))
                        wrap-keyword-params
                        wrap-params)
-        server    (httpkit/run-server app {:port 8080})]
+        server    (httpkit/run-server app {:port port})]
     (let []
-      (println "Serving on port" 8080)
+      (println "Serving on port" port)
       server)))
