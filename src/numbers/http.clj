@@ -16,49 +16,49 @@
                  [:form {:method "GET"}
                   [:fieldset
                    [:div
-                    [:input {:type "number" :name "start" :value (str (or start 1557125670763))}]
+                    [:input {:type "number" :name "start" :value (str (or start 1557125660763))}]
                     [:label {:for "start"} "Start timestamp (milliseconds since epoch):"]]
 
                    [:div
-                    [:input {:type "number" :name "end" :value (str (or end 1557135269060))}]
+                    [:input {:type "number" :name "end" :value (str (or end 1557135288803))}]
                     [:label {:for "end"} "End timestamp (milliseconds since epoch):"]]
 
                    [:button "Regenerate and view image from time period"]]]
                  [:div
-                  [:img {:src (str "generated.png?" (rand-int 1000000)) :width "480"}]]]]))
+                  [:img {:src (str "generated.png?" (rand-int 1000000)) :width "560"}]]]]))
 
 (defn handler
-  [store base-filename]
+  [streams rand-part]
   {:get {:parameters {:query {:start int?, :end int?}}
          :handler    (fn [req]
                        (let [{:strs [start end]} (:query-params req)]
                          (let [start (try (Long/parseLong start)
-                                          (catch Exception _
-                                            1557125670763))
+                                          (catch Exception _ 1557125660763))
                                end   (try (Long/parseLong end)
-                                          (catch Exception _
-                                            2000000000))]
+                                          (catch Exception _ 1557135288803))]
+()
                            ;; TODO: render image
                            {:body   (index start end)
                             :status 200})))}})
 
 (defn start!
-  [store]
-  (let [base-filename (format "generated-%s.png" (rand-int 1000000))
-        app           (->> (reitit.ring/ring-handler
-                            (reitit.ring/router
-                             [""
-                              ["/" (handler store base-filename)]
-                              ["/generated.png" (fn [req]
-                                                  {:status  200
-                                                   :headers {}
-                                                   :body    (io/file base-filename)})]])
-                            (reitit.ring/routes
-                             (reitit.ring/create-resource-handler {:path "/"})
-                             (reitit.ring/create-default-handler)))
-                           wrap-keyword-params
-                           wrap-params)
-        server        (httpkit/run-server app {:port 8080})]
+  [streams]
+  (let [rand-part (format "generated-%s.png" (rand-int 10000))
+        app       (->> (reitit.ring/ring-handler
+                        (reitit.ring/router
+                         [""
+                          ["/" (handler streams rand-part)]
+                          ["/generated.png"
+                           (fn [_]
+                             {:status  200
+                              :headers {}
+                              :body    (io/file (format "public/resources/generated-%s.png" rand-part))})]])
+                        (reitit.ring/routes
+                         (reitit.ring/create-resource-handler {:path "/"})
+                         (reitit.ring/create-default-handler)))
+                       wrap-keyword-params
+                       wrap-params)
+        server    (httpkit/run-server app {:port 8080})]
     (let []
       (println "Serving on port" 8080)
       server)))

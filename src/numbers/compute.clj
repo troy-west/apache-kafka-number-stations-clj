@@ -73,11 +73,13 @@
 
 (defn slice
   ([streams]
-   (slice streams (radio/stations)))
-  ([streams stations]
-   (slice streams stations 1557125660763 1557135288803))
-  ([streams stations ^long start ^long end]
-   (let [store (.store streams "PT10S-Store" (QueryableStoreTypes/windowStore))]
+   (slice streams "PT10S-Store"))
+  ([streams store-name]
+   (slice streams store-name (radio/stations)))
+  ([streams store-name stations]
+   (slice streams store-name stations 1557125660763 1557135288803))
+  ([streams store-name stations ^long start ^long end]
+   (let [store (.store streams store-name (QueryableStoreTypes/windowStore))]
      (map #(.value %1)
           (reduce into
                   []

@@ -14,4 +14,6 @@
                  [metosin/reitit-ring "0.3.1"]
                  [hiccup "1.0.5"]]
 
-  :aot [numbers.serdes])
+  :aot [numbers.serdes numbers.system]
+
+  :main [numbers.system])
