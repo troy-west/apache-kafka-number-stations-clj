@@ -13,12 +13,12 @@
    {:time 1557125670790 :type "UXX" :name "XRAY"}
    {:time 1557125670794 :type "MOR" :name "425" :long 77 :lat 25 :content ["....." "----."]}
    {:time 1557125670795 :type "UXX" :name "XRAY"}
-   {:time 1557125670799 :type "ENG" :name "NZ1" :long -78 :lat 166 :content ["two"]}
+   {:time 1557125670799 :type "ENG" :name "NZ1" :long 166 :lat -78 :content ["two"]}
    {:time 1557125670807 :type "ENG" :name "159" :long -55 :lat -18 :content ["three" "five"]}
    {:time 1557125670812 :type "ENG" :name "426" :long 78 :lat 26 :content ["six" "three"]}
    {:time 1557125670814 :type "GER" :name "85" :long -92 :lat -30 :content ["drei" "neun"]}
    {:time 1557125670819 :type "MOR" :name "425" :long 77 :lat 25 :content [".----"]}
-   {:time 1557125670824 :type "ENG" :name "NZ1" :long -78 :lat 166 :content ["two"]}
+   {:time 1557125670824 :type "ENG" :name "NZ1" :long 166 :lat -78 :content ["two"]}
    {:time 1557125670827 :type "ENG" :name "324" :long 27 :lat 9 :content ["two" "nine"]}
    {:time 1557125670829 :type "GER" :name "460" :long 95 :lat 31 :content ["fünf" "sieben"]}
    {:time 1557125670831 :type "GER" :name "355" :long 42 :lat 14 :content ["sieben"]}
@@ -60,7 +60,7 @@
 
       (is (= [{:time 1557125670789 :type "GER" :name "85" :long -92 :lat -30 :content ["eins" "null" "sechs"]}
               {:time 1557125670794 :type "MOR" :name "425" :long 77 :lat 25 :content ["....." "----."]}
-              {:time 1557125670799 :type "ENG" :name "NZ1" :long -78 :lat 166 :content ["two"]}
+              {:time 1557125670799 :type "ENG" :name "NZ1" :long 166 :lat -78 :content ["two"]}
               {:time 1557125670807 :type "ENG" :name "159" :long -55 :lat -18 :content ["three" "five"]}
               {:time 1557125670812 :type "ENG" :name "426" :long 78 :lat 26 :content ["six" "three"]}]
              (read-output driver 5))))))
@@ -79,7 +79,7 @@
       (testing "Content is translated"
         (is (= [{:time 1557125670789 :type "GER" :name "85" :long -92 :lat -30 :content [106]}
                 {:time 1557125670794 :type "MOR" :name "425" :long 77 :lat 25 :content [59]}
-                {:time 1557125670799 :type "ENG" :name "NZ1" :long -78 :lat 166 :content [2]}
+                {:time 1557125670799 :type "ENG" :name "NZ1" :long 166 :lat -78 :content [2]}
                 {:time 1557125670807 :type "ENG" :name "159" :long -55 :lat -18 :content [35]}
                 {:time 1557125670812 :type "ENG" :name "426" :long 78 :lat 26 :content [63]}]
                (read-output driver 5)))))))
@@ -107,3 +107,22 @@
         (with-open [iterator (.fetch (.getWindowStore driver "PT10S-Store") "Unknown-Key" 0 10000)]
           (is (= []
                  (mapv #(.value %) (iterator-seq iterator)))))))))
+
+(deftest branch-test
+  (let [builder (StreamsBuilder.)]
+    (-> ^KStream (topology/stream builder)
+        (topology/filter-known)
+        (topology/branch)
+        first
+        (.to "output"))
+
+    (with-open [driver (TopologyTestDriver. (.build builder) topology/config)]
+
+      (send-messages driver test-messages)
+
+      (is (= [{:time 1557125670789 :type "GER" :name "85" :long -92 :lat -30 :content ["eins" "null" "sechs"]}
+              {:time 1557125670794 :type "MOR" :name "425" :long 77 :lat 25 :content ["....." "----."]}
+              {:time 1557125670799 :type "ENG" :name "NZ1" :long 166 :lat -78 :content ["two"]}
+              {:time 1557125670807 :type "ENG" :name "159" :long -55 :lat -18 :content ["three" "five"]}
+              {:time 1557125670812 :type "ENG" :name "426" :long 78 :lat 26 :content ["six" "three"]}]
+             (read-output driver 5))))))

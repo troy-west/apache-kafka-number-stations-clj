@@ -52,6 +52,17 @@
                         (update agg :content conj (first (:content v))))))
                   (Materialized/as "PT10S-Store"))))
 
+(defn branch
+  "Branch between messages above and below -75 latitude"
+  [^KStream events]
+  (.branch events (into-array Predicate [(reify Predicate
+                                           (test [_ _ message]
+                                             (prn (:lat message))
+                                             (< (:lat message) -75)))])))
+
+(defn join
+  [^KStream events])
+
 (defn topology
   []
   (let [builder (StreamsBuilder.)]
@@ -66,10 +77,6 @@
   (let [^KafkaStreams streams (KafkaStreams. ^Topology (topology) (StreamsConfig. config))]
     (.start streams)
     streams))
-
-(defn store
-  [streams]
-  (.store streams "PT10S-Store" (QueryableStoreTypes/windowStore)))
 
 (defn slice
   ([streams]

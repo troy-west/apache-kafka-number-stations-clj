@@ -39,9 +39,9 @@
           (map (fn [idx]
                  (let [time    (+ (* idx 10000) 1557125670799)
                        content (rand-int 3)]
-                   [(reading time "ENG" "NZ1" -78 166 content)
-                    (reading (+ 25 time) "ENG" "NZ1" -78 166 content)
-                    (reading (+ 50 time) "ENG" "NZ1" -78 166 content)]))
+                   [(reading time "ENG" "NZ1" 166 -78 content)
+                    (reading (+ 25 time) "ENG" "NZ1" 166 -78 content)
+                    (reading (+ 50 time) "ENG" "NZ1" 166 -78 content)]))
                (range n))))
 
 (defn fuzz
