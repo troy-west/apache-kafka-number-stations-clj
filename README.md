@@ -62,6 +62,12 @@ Topic:radio-logs	PartitionCount:12	ReplicationFactor:3	Configs:
 	Topic: radio-logs	Partition: 11	Leader: 2	Replicas: 2,3,1	Isr: 2,3,1
 ```
 
+As you progress through this project you can always reset the consumer offets like so:
+
+```
+./bin/kafka-consumer-groups.sh --bootstrap-server kafka-1:19092 --group compute-radio-logs --reset-offsets --to-earliest --execute --topic radio-logs
+```
+
 Now, from within this project:
 
 Take a look at the Number Station data
