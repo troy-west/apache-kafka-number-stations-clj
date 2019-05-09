@@ -1,13 +1,13 @@
 (ns numbers.http
   (:require [clojure.java.io :as io]
+            [numbers.compute :as compute]
+            [numbers.image :as image]
             [org.httpkit.server :as httpkit]
             [hiccup.core :as hiccup]
             [reitit.ring :as reitit.ring]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.params :refer [wrap-params]]
-            [ring.middleware.file :refer [wrap-file]]
-            [numbers.compute :as compute]
-            [numbers.image :as image]))
+            [ring.middleware.file :refer [wrap-file]]))
 
 (defn index
   [start end]
