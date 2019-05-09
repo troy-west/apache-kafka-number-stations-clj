@@ -75,9 +75,14 @@
   ([streams]
    (slice streams (radio/stations)))
   ([streams stations]
-   (slice streams stations 1557125670763 1557135278803))
+   (slice streams stations 1557125660763 1557135288803))
   ([streams stations ^long start ^long end]
    (let [store (.store streams "PT10S-Store" (QueryableStoreTypes/windowStore))]
-     (reduce into [] (map (fn [station]
-                            (iterator-seq (.fetch ^ReadOnlyWindowStore store station start end)))
-                          stations)))))
+     (map #(.value %1)
+          (reduce into
+                  []
+                  (map (fn [station]
+                         (let [seccy (iterator-seq (.fetch ^ReadOnlyWindowStore store station start end))]
+                           (prn (count seccy))
+                           seccy))
+                       stations))))))
