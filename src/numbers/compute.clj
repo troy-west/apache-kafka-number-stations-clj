@@ -3,7 +3,7 @@
             [numbers.radio :as radio])
   (:import (java.util Properties)
            (org.apache.kafka.streams.processor TimestampExtractor)
-           (org.apache.kafka.streams.kstream Consumed KStream Predicate ValueMapper Aggregator TimeWindows Initializer Materialized)
+           (org.apache.kafka.streams.kstream Consumed KStream Predicate ValueMapper Aggregator TimeWindows Initializer Materialized KTable ValueJoiner)
            (org.apache.kafka.streams StreamsBuilder StreamsConfig Topology KafkaStreams)
            (org.apache.kafka.streams.state QueryableStoreTypes ReadOnlyWindowStore)))
 
@@ -26,22 +26,22 @@
 
 (defn filter-known
   "Filter the input stream, keeping only tx/known? elements"
-  [^KStream events]
-  (.filter events (reify Predicate
-                    (test [_ _ message]
-                      (tx/known? message)))))
+  [^KStream messages]
+  (.filter messages (reify Predicate
+                      (test [_ _ message]
+                        (tx/known? message)))))
 
 (defn translate
   "Translate the input stream, converting from text to numeric content"
-  [^KStream events]
-  (.mapValues events (reify ValueMapper
-                       (apply [_ message]
-                         (tx/translate message)))))
+  [^KStream messages]
+  (.mapValues messages (reify ValueMapper
+                         (apply [_ message]
+                           (tx/translate message)))))
 
 (defn correlate
   "Correlate the input stream, grouping by station-id then windowing every 10s"
-  [^KStream events store-name]
-  (-> (.groupByKey events)
+  [^KStream messages store-name]
+  (-> (.groupByKey messages)
       (.windowedBy (TimeWindows/of 10000))
       (.aggregate (reify Initializer
                     (apply [_] nil))
@@ -54,17 +54,14 @@
 
 (defn branch-scott-base
   "Branch between messages above and below -75 latitude"
-  [^KStream events]
-  (.branch events (into-array Predicate
-                              [(reify Predicate
-                                 (test [_ _ message]
-                                   (>= (:lat message) -75)))
-                               (reify Predicate
-                                 (test [_ _ message]
-                                   (< (:lat message) -75)))])))
-
-(defn join
-  [^KStream events])
+  [^KStream messages]
+  (.branch messages (into-array Predicate
+                                [(reify Predicate
+                                   (test [_ _ message]
+                                     (>= (:lat message) -75)))
+                                 (reify Predicate
+                                   (test [_ _ message]
+                                     (< (:lat message) -75)))])))
 
 (defn topology
   []
