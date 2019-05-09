@@ -12,6 +12,10 @@
   [^BufferedImage img]
   (.getWidth (.getData img)))
 
+(defn height
+  [^BufferedImage img]
+  (.getHeight (.getData img)))
+
 (defn pixels
   [^BufferedImage img]
   (let [raster (.getData img)
@@ -35,16 +39,16 @@
           (map (fn [idx]
                  (let [time    (+ (* idx 10000) 1557125670799)
                        content (rand-int 3)]
-                   [(reading time "ENG" "001-NZ" -78 166 content)
-                    (reading (+ 25 time) "ENG" "001-NZ" -78 166 content)
-                    (reading (+ 50 time) "ENG" "001-NZ" -78 166 content)]))
+                   [(reading time "ENG" "NZ1" -78 166 content)
+                    (reading (+ 25 time) "ENG" "NZ1" -78 166 content)
+                    (reading (+ 50 time) "ENG" "NZ1" -78 166 content)]))
                (range n))))
 
 (defn fuzz
   [secret idx station]
   (let [start-at 1557125670763
         s-type   (get tx/types (mod idx 3))
-        s-name   (str (format "%03d" idx) "-" (get tx/suffix (mod idx 3)))
+        s-name   (format "%03d" idx)
         s-long   (int (+ -135 (/ idx 2)))
         s-lat    (int (+ -45 (/ idx 6)))]
     (reduce-kv (fn [ret i item]
@@ -83,7 +87,7 @@
   [pixels]
   (let [img       (BufferedImage. 960 540 BufferedImage/TYPE_INT_ARGB)
         dst-array (.getData (.getDataBuffer (.getRaster img)))
-        src-array (int-array (map (fn [[r g b]]
+        src-array (int-array (map (fn [[^int r ^int g ^int b]]
                                     (.getRGB (Color. r g b 255)))
                                   pixels))]
     (System/arraycopy src-array 0 dst-array 0 (alength src-array))

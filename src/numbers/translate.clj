@@ -26,5 +26,5 @@
   (assoc message :content [(number (:type message) (:content message))]))
 
 (defn known?
-  [type]
-  (contains? number-index type))
+  [message]
+  (contains? number-index (:type message)))

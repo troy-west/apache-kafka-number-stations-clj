@@ -1,6 +1,7 @@
 (ns numbers.serdes
   (:require [clojure.data.json :as json])
-  (:import [org.apache.kafka.common.serialization Deserializer Serde Serializer]))
+  (:import (org.apache.kafka.common.serialization Deserializer Serde Serializer))
+  (:gen-class))
 
 (deftype JsonSerializer []
   Serializer

@@ -1,0 +1,15 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} – %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="kafka" level="DEBUG"/>
+    <logger name="org.apache.kafka" level="WARN"/>
+    <logger name="org.apache.zookeeper" level="WARN"/>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
