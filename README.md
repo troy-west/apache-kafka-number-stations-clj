@@ -2,6 +2,14 @@
 
 Use in unison with the TW AK3W Workshop: https://kafka.troywest.com
 
+# Background
+
+We have captured a mysterious ~3hr broadcast of global Number Station data.
+
+In raw form it is 1.5M messages in different languages.
+
+Can we filter it, translate it, correlate it, and decode the hidden message?
+
 # Initialize Kafka + Kakfa Tools
 
 Using [troy-west/apache-kafka-cli-tools](https://github.com/troy-west/apache-kafka-cli-tools)
@@ -57,12 +65,28 @@ Topic:radio-logs	PartitionCount:12	ReplicationFactor:3	Configs:
 Now, from within this project:
 
 Take a look at the Number Station data
+
 ```
 (radio/sample)
 ```
 
 Then:
 
-* Send that data to your local Kafka Cluster
-* Complete the Topology tests using the TopologyTestRunner
+* Send the full ```(radio/listen)``` data to your local Kafka Cluster
+* Complete the compute tests using the TopologyTestRunner
 * Build the application and run it against local Kafka
+* See the decoded message!
+
+Once the compute tests are complete, you can build and run the application like so:
+
+```
+lein uberjar
+```
+
+then
+
+```
+java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar 8082 &
+```
+
+What happens when you run more than one application (say on ports 8081, 8082, 8083), and why?
