@@ -2,6 +2,8 @@
 
 Use in unison with the TW AK3W Workshop: https://kafka.troywest.com
 
+# Background
+
 We have captured a mysterious ~3hr broadcast of global Number Station data.
 
 In raw form it is 1.5M messages in different languages.
