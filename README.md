@@ -75,7 +75,13 @@ Then:
 * Build the application and run it against local Kafka
 * See the decoded message!
 
-Once the compute tests are complete, you can run the application like so:
+Once the compute tests are complete, you can build and run the application like so:
+
+```
+lein uberjar
+```
+
+then
 
 ```
 java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar 8082 &
