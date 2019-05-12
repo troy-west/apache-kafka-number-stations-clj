@@ -62,6 +62,25 @@ Topic:radio-logs	PartitionCount:12	ReplicationFactor:3	Configs:
 	Topic: radio-logs	Partition: 11	Leader: 2	Replicas: 2,3,1	Isr: 2,3,1
 ```
 
+Take a look at the data in each partition (currently empty)
+
+```
+./bin/kafka-run-class.sh kafka.tools.GetOffsetShell --broker-list kafka-1:19092 --topic x-topic --time -1
+
+radio-logs:0:0
+radio-logs:1:0
+radio-logs:2:0
+radio-logs:3:0
+radio-logs:4:0
+radio-logs:5:0
+radio-logs:6:0
+radio-logs:7:0
+radio-logs:8:0
+radio-logs:9:0
+radio-logs:10:0
+radio-logs:11:0
+```
+
 As you progress through this project you can always reset the consumer offets like so:
 
 ```
