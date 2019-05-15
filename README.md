@@ -115,3 +115,28 @@ java -jar target/number-stations-0.1.0-SNAPSHOT-standalone.jar 8082 &
 ```
 
 What happens when you run more than one application (say on ports 8081, 8082, 8083), and why?
+
+# Troubleshooting
+
+## Downloading Oracle Java JDK
+
+1. Visit https://www.oracle.com/technetwork/java/javase/downloads/index.html
+2. Download Java SE 11 or above
+
+If you are asked to log in, try downloading one of the newer versions, then you may not need to log in.
+
+## Windows
+
+### Docker
+
+If you are having problems with docker similar to the following error messages, try restarting docker:
+
+```
+driver failed programming external connectivity on endpoint
+```
+
+or,
+
+```
+input/output error
+```
