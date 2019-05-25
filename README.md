@@ -37,6 +37,8 @@ input/output error
 
 ##### Note: These broker nodes are accessible on localhost:8082, 8083, and 8083.
 
+Using [troy-west/apache-kafka-cli-tools](https://github.com/troy-west/apache-kafka-cli-tools):
+
 Start a 3-node Kafka Cluster and enter a shell with all kafka-tools scripts:
 ```sh
 docker-compose down
