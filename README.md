@@ -21,12 +21,6 @@ Can we filter, branch, translate, group, window, and aggregate these messages to
 1. Visit https://www.oracle.com/technetwork/java/javase/downloads/index.html
 2. This project requires Java 9+ (we suggest 11+)
 
-#### Windows & Maven
-
-For any of the "mvn" commands below, run the shell snippets from "cmd.exe" rather than PowerShell.
-
-If you are inside a PowerShell terminal, run "cmd" to get to a simple shell.
-
 #### Docker
 
 If you are having problems with docker similar to the following error messages, try restarting docker:
@@ -110,7 +104,7 @@ radio-logs:11:0
 
 # Decoding the secret message, part by part.
 
-At any time, run all the project tests with ```mvn test```
+At any time, run all the project tests with ```lein test```
 
 # Examine the Data
 
