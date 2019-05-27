@@ -2,7 +2,7 @@
 
 A practical exercise introducing the TestTopologyDriver to drive development of a streaming compute application.
 
-Use in unison with [TW AK3W Workshop](https://github.com/troy-west/apache-kafka-three-ways), a solution to this exercise is [available here](https://github.com/troy-west/apache-kafka-number-stations-sln).
+Use in unison with [TW AK3W Workshop](https://github.com/troy-west/apache-kafka-three-ways), a solution to this exercise is [available here](https://github.com/troy-west/apache-kafka-number-stations-clj-sln).
 
 This project is also available [in Java](https://github.com/troy-west/apache-kafka-number-stations).
 
