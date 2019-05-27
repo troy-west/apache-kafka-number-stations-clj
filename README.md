@@ -159,6 +159,32 @@ Create a new KafkaProducer and send each message returned by (radio/listen) to t
 
 Once implemented, call the function to produce the full broadcast to the radio-logs topic
 
+```clojure
+(radio/produce)
+=> nil
+
+```
+
+Once produced, take another look at the partitions and offsets of the radio-logs topic:
+
+```bash
+# ./bin/kafka-run-class.sh kafka.tools.GetOffsetShell --broker-list kafka-1:19092 --topic radio-logs --time -1
+radio-logs:0:121272
+radio-logs:1:70920
+radio-logs:2:125806
+radio-logs:3:114417
+radio-logs:4:102927
+radio-logs:5:102933
+radio-logs:6:107544
+radio-logs:7:114376
+radio-logs:8:93776
+radio-logs:9:123552
+radio-logs:10:77787
+radio-logs:11:82374
+```
+
+The distribution is a bit lumpy, more messages in partition 9 than partition 8 for instance. Why is that?
+
 # Build Streaming Compute, Test First
 
 ## Implement the Timestamp Extractor
@@ -217,10 +243,15 @@ Those three numbers are RBG values, and we can reconstitute a 540px by 960px png
 You can run that topology against your local cluster:
 
 ```clojure
-(system/start!)
+(require '[numbers.system :as system])
+=> nil
+(system/start! 8080)
+13:03:17.022 WARN  [nRepl-session-fb0fc988-fd38-401f-96a1-3569310c8901] o.a.k.c.consumer.ConsumerConfig – The configuration 'admin.retries' was supplied but isn't a known config.
+13:03:17.027 WARN  [nRepl-session-fb0fc988-fd38-401f-96a1-3569310c8901] o.a.k.c.consumer.ConsumerConfig – The configuration 'admin.retry.backoff.ms' was supplied but isn't a known config.
+Serving on port 8080
 ```
 
-Navigate to localhost:8080 to inspect the decoded message! It may take a minute to process.
+Navigate to localhost:8080 to inspect the decoded message! It may take a minute to process, and you may want to reload the page to see progress.
 
 While the logs are being computed you can check on progress by looking at the offsets of the consumer group
 
@@ -260,7 +291,9 @@ What happens when you run more than one application (say on ports 8081, 8082, 80
 * java -jar target/apache-kafka-java-number-stations-1.0-SNAPSHOT-jar-with-dependencies.jar 8080 &
 * java -jar target/apache-kafka-java-number-stations-1.0-SNAPSHOT-jar-with-dependencies.jar 8081 &
 
-It's a case for interactive queries!
+What image is displayed on each port, and why? What happens to local KTable state if you start more instances?
+
+It's a case for Interactive Queries!
 
 # An Extension
 
