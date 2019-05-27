@@ -114,33 +114,31 @@ At any time, run all the project tests with ```lein test```
 
 Take a look at a sample of twenty intercepted messages:
 
-```bash
-mvn compile exec:java -Dexec.mainClass="numbers.SecretRadio"
-```
-
-Produces content similar to:
-
 ```clojure
-{"time":1557125670767,"name":"060","type":"ENG","longitude":-105,"latitude":-35,"content":["one"]}
-{"time":1557125670768,"name":"X-RAY","type":"UXX","longitude":0,"latitude":0,"content":null}
-{"time":1557125670784,"name":"284","type":"MOR","longitude":7,"latitude":2,"content":[".----"]}
-{"time":1557125670785,"name":"X-RAY","type":"UXX","longitude":0,"latitude":0,"content":null}
-{"time":1557125670792,"name":"060","type":"ENG","longitude":-105,"latitude":-35,"content":["one"]}
-{"time":1557125670797,"name":"172","type":"GER","longitude":-49,"latitude":-16,"content":["eins"]}
-{"time":1557125670799,"name":"NZ1","type":"ENG","longitude":166,"latitude":-78,"content":["two"]}
-{"time":1557125670809,"name":"284","type":"MOR","longitude":7,"latitude":2,"content":[".----"]}
-{"time":1557125670817,"name":"060","type":"ENG","longitude":-105,"latitude":-35,"content":["one"]}
-{"time":1557125670822,"name":"172","type":"GER","longitude":-49,"latitude":-16,"content":["eins"]}
-{"time":1557125670824,"name":"NZ1","type":"ENG","longitude":166,"latitude":-78,"content":["two"]}
-{"time":1557125670824,"name":"233","type":"MOR","longitude":-18,"latitude":-6,"content":[".----"]}
-{"time":1557125670834,"name":"284","type":"MOR","longitude":7,"latitude":2,"content":[".----"]}
-{"time":1557125670847,"name":"065","type":"MOR","longitude":-102,"latitude":-34,"content":[".----"]}
-{"time":1557125670847,"name":"172","type":"GER","longitude":-49,"latitude":-16,"content":["eins"]}
-{"time":1557125670849,"name":"NZ1","type":"ENG","longitude":166,"latitude":-78,"content":["two"]}
-{"time":1557125670849,"name":"233","type":"MOR","longitude":-18,"latitude":-6,"content":[".----"]}
-{"time":1557125670854,"name":"361","type":"GER","longitude":45,"latitude":15,"content":["eins"]}
-{"time":1557125670860,"name":"444","type":"ENG","longitude":87,"latitude":29,"content":["one"]}
-{"time":1557125670872,"name":"065","type":"MOR","longitude":-102,"latitude":-34,"content":[".----"]}
+(require '[numbers.radio :as radio])
+=> nil
+(radio/sample)
+=>
+({:time 1557125670764, :type "ENG", :name "315", :long 22, :lat 7, :content ["one"]}
+ {:time 1557125670765, :type "UXX", :name "X-RAY"}
+ {:time 1557125670776, :type "ENG", :name "150", :long -60, :lat -20, :content ["one"]}
+ {:time 1557125670777, :type "UXX", :name "X-RAY"}
+ {:time 1557125670781, :type "MOR", :name "371", :long 50, :lat 16, :content [".----"]}
+ {:time 1557125670787, :type "GER", :name "133", :long -68, :lat -22, :content ["eins"]}
+ {:time 1557125670787, :type "MOR", :name "392", :long 61, :lat 20, :content [".----"]}
+ {:time 1557125670789, :type "ENG", :name "315", :long 22, :lat 7, :content ["one"]}
+ {:time 1557125670798, :type "ENG", :name "417", :long 73, :lat 24, :content ["one"]}
+ {:time 1557125670799, :type "ENG", :name "NZ1", :long 166, :lat -78, :content ["one"]}
+ {:time 1557125670799, :type "GER", :name "073", :long -98, :lat -32, :content ["eins"]}
+ {:time 1557125670801, :type "ENG", :name "150", :long -60, :lat -20, :content ["one"]}
+ {:time 1557125670806, :type "MOR", :name "371", :long 50, :lat 16, :content [".----"]}
+ {:time 1557125670812, :type "GER", :name "133", :long -68, :lat -22, :content ["eins"]}
+ {:time 1557125670812, :type "MOR", :name "392", :long 61, :lat 20, :content [".----"]}
+ {:time 1557125670814, :type "ENG", :name "315", :long 22, :lat 7, :content ["one"]}
+ {:time 1557125670823, :type "ENG", :name "417", :long 73, :lat 24, :content ["one"]}
+ {:time 1557125670824, :type "ENG", :name "NZ1", :long 166, :lat -78, :content ["one"]}
+ {:time 1557125670824, :type "GER", :name "073", :long -98, :lat -32, :content ["eins"]}
+ {:time 1557125670824, :type "ENG", :name "429", :long 79, :lat 26, :content ["one"]})
 ```
 
 We have messages of type English, German, and Morse Code. There are also some spurious of type 'UXX'.
