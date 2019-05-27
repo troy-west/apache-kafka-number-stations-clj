@@ -79,7 +79,7 @@
   (let [builder (StreamsBuilder.)]
     (-> ^KStream (compute/stream builder)
         (compute/filter-known)
-        (compute/branch-scott-base)
+        (compute/branch-scott-base-and-row)
         first
         (.to "output"))
 
@@ -110,7 +110,7 @@
   (let [builder (StreamsBuilder.)]
     (-> ^KStream (compute/stream builder)
         (compute/filter-known)
-        (compute/branch-scott-base)
+        (compute/branch-scott-base-and-row)
         second
         (.to "output"))
 

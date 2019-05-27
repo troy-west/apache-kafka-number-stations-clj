@@ -18,50 +18,43 @@
 (def ^TimestampExtractor extractor
   (reify TimestampExtractor
     (extract [_ record _]
-      (:time (.value record)))))
+     ;; TODO: implement me. Return the time value from each message rather than 0
+      0
+     )))
 
 (defn stream
   [^StreamsBuilder builder]
-  (.stream builder "radio-logs" (Consumed/with ^TimestampExtractor extractor)))
+  ;; TODO: Implement me. Create a new stream with a timestamp extractor (implemented above)
+
+  )
 
 (defn filter-known
   "Filter the input stream, keeping only tx/known? elements"
   [^KStream messages]
-  (.filter messages (reify Predicate
-                      (test [_ _ message]
-                        (tx/known? message)))))
+  ;; TODO: Implement me. streams.filter only messages where translator.known?(message) is true
+
+  )
+
+(defn branch-scott-base-and-row
+  "Branch between messages above and below -75 latitude"
+  [^KStream messages]
+  ;; TODO: Implement me. Split the stream in two with streams.branch. All messages above -75 latitude, and those below (Scott Base)
+
+  )
 
 (defn translate
   "Translate the input stream, converting from text to numeric content"
   [^KStream messages]
-  (.mapValues messages (reify ValueMapper
-                         (apply [_ message]
-                           (tx/translate message)))))
+  ;; TODO: Implement me. Translate content from text to numeric with streams.map or streams.mapValues
+
+  )
 
 (defn correlate
   "Correlate the input stream, grouping by station-id then windowing every 10s"
   [^KStream messages store-name]
-  (-> (.groupByKey messages)
-      (.windowedBy (TimeWindows/of 10000))
-      (.aggregate (reify Initializer
-                    (apply [_] nil))
-                  (reify Aggregator
-                    (apply [_ _ v agg]
-                      (if (not agg)
-                        v
-                        (update agg :content conj (first (:content v))))))
-                  (Materialized/as ^String store-name))))
-
-(defn branch-scott-base
-  "Branch between messages above and below -75 latitude"
-  [^KStream messages]
-  (.branch messages (into-array Predicate
-                                [(reify Predicate
-                                   (test [_ _ message]
-                                     (>= (:lat message) -75)))
-                                 (reify Predicate
-                                   (test [_ _ message]
-                                     (< (:lat message) -75)))])))
+  ;; TODO: Implement me. Group messages by key, then window by 10s tumbling time windows, then aggregate each window into a single message with a content tuple of three numbers
+  ;; TODO: finally, make sure the k-table is materialized to "PT10S-Store"
+  )
 
 (defn topology
   []

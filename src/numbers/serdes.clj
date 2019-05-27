@@ -8,20 +8,16 @@
   Serializer
   (configure [_ _ _])
   (serialize [_ _ data]
-    (try
-      (.getBytes (json/write-str data))
-      (catch Exception ex
-        (log/error ex "failed to serialize"))))
+   ;; TODO: Implement me. What's the preferred action when a serialization exception occurs, and why?
+   )
   (close [_]))
 
 (deftype JsonDeserializer []
   Deserializer
   (configure [_ _ _])
   (deserialize [_ _ data]
-    (try
-      (json/read-str (String. data) :key-fn keyword)
-      (catch Exception ex
-        (log/error ex "failed to deserialize"))))
+   ;; TODO: Implement me. What's the preferred action when a serialization exception occurs, and why?
+   )
   (close [_]))
 
 (deftype JsonSerde []
