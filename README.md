@@ -10,7 +10,7 @@ This project is also available [in Java](https://github.com/troy-west/apache-kaf
 
 [Number Stations](https://en.wikipedia.org/wiki/Numbers_station) are shortwave radio stations that broadcast formatted numbers, which are believed to be addressed to intelligence officers operating in foreign countries.
 
-We created a radio that captured ~3hrs of mysterious global Number Station broadcasts, taking the form of 1.5M messages from 541 Number Stations world wide. The radio also captured some spurious messages of no interest.
+We created a radio that captured ~3hrs of mysterious global Number Station broadcasts, taking the form of 1.5M messages from 541 Number Stations world-wide. The radio also captured some spurious messages of no interest.
 
 Can we filter, branch, translate, group, window, and aggregate these messages to decode the hidden message?
 
