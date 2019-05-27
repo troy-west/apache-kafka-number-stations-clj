@@ -145,45 +145,29 @@ We have messages of type English, German, and Morse Code. There are also some sp
 
 # Produce Secret Radio Data to Kafka
 
-## Implement the JSON Serializer / Deserializer
+## Implement (radio/produce)
 
-In order to create a producer that sends Message objects to Kafka, first we create the Serializer and Deserializer classes, it's also worth having a quick look at the MessageSerde class which uses both.
+Create a new KafkaProducer and send each message returned by (radio/listen) to the radio-logs topic.
 
-* Get numbers.JsonDeserializerTest passing 
-* Get numbers.JsonSerializerTest passing
-
-Do we throw or swallow exceptions in the serialization classes, and why?
-
-## Implement Producer.main
-
-Create a new KafkaProducer and send each message returned by SecretRadio.listen() to the radio-logs topic.
-
-What happens if you don't close the Producer and allow the JVM to exit immediately?
-
-Once implemented, you can produce the full broadcast to radio-logs via:
-
-```bash
-mvn compile exec:java -Dexec.mainClass="numbers.Producer"
-```
+Once implemented, call the function to produce the full broadcast to the radio-logs topic
 
 # Build Streaming Compute, Test First
 
-## Implement the MessageTimeExtractor
+## Implement the Timestamp Extractor
 
 We want our messages to be interpreted at the time they declare in the :time field rather than producer or log time. At this point we cover the different concepts of time in Kafka, and the big idea of deterministic recomputabiity. Broadly similar to favouring pure functions without side-effects in a functional programming sense.
-
-* Get numbers.MessageTimeExtractor passing 
-* Get numbers.ComputeTest.testStreamTimestampExtraction passing
+ 
+* Get numbers.compute-test.test-timestamp-extraction passing
 
 Why should you never return a static number (like 0L) from the extractor? Does it impact compaction, deletion, etc?
 
 ## Filter Known Messages
 
-We provide a Translator class that can decode individual messages from German, English, and Morse Code into numeric.
+We provide a translate ns that can decode individual messages from German, English, and Morse Code into numeric.
 
-Use ```streams.filter(...)``` and ```Translator.knows(Message message)``` to filter out unknown messages.
+Use ```streams.filter(...)``` and ```translate.known?(message)``` to filter out unknown messages.
 
-* Get numbers.ComputeTest.testFilterKnown passing
+* Get numbers.compute-test.test-filter-known passing
 
 ## Branch Scott Base / Rest of the World
 
@@ -191,14 +175,14 @@ We are told that Scott Base is a special station that should be considered indep
 
 Use ```streams.branch(...)``` to split the filtered stream in two. Scott Base is the only station below -75 latitude.
 
-* Get numbers.ComputeTest.testBranchRestOfWorld passing
-* Get numbers.ComputeTest.testBranchScottBase passing
+* Get numbers.compute-test.test-branch-rest-of-world passing
+* Get numbers.compute-test.test-branch-scott-base passing
 
 ## Translate Known, Rest of World Messages
 
-Use ```streams.map(...)``` or ```streams.mapValues(...)``` to translate the message stream with ```Translator.translate(...)```
+Use ```streams.map(...)``` or ```streams.mapValues(...)``` to translate the message stream with ```translate/translate(...)```
 
-* Get numbers.ComputeTest.testTranslate passing
+* Get numbers.compute-test.test-translate passing
 
 Why do we prefer streams.mapValues in this case? What is the consequence of using map?
 
@@ -212,7 +196,7 @@ In this case we use ```streams.groupByKey()```, ```streams.windowBy(...)```, and
 
 Make sure the KTable that results from the aggregation is materialized as 'PT10S-Store'.
  
-* Get numbers.ComputeTest.testCorrelate passing
+* Get numbers.compute-test.test-correlate passing
 
 ## When the Tests Pass
 
@@ -224,11 +208,11 @@ Those three numbers are RBG values, and we can reconstitute a 540px by 960px png
 
 You can run that topology against your local cluster:
 
-```bash
-mvn clean compile exec:java -Dexec.mainClass="numbers.App"
+```clojure
+(system/start!)
 ```
 
-Navigate to localhost:8080 to inspect the decoded message! It may take a minute or two to process.
+Navigate to localhost:8080 to inspect the decoded message! It may take a minute to process.
 
 While the logs are being computed you can check on progress by looking at the offsets of the consumer group
 
@@ -261,7 +245,7 @@ What happens when you run more than one application (say on ports 8081, 8082, 80
 
 ## Build the app JAR
 
-mvn clean compile package
+```lein uberjar```
 
 ## Run multiple versions of the app at once on different ports
 
@@ -283,7 +267,7 @@ That's because Scott Base is special. It broadcasts a rotation factor for each t
 If we use Scott Base as a further cipher we could aggregate that cipher to a different ktable, then join the stream
 of correlated messages with that, rotating where appropriate. This is left up to the adventurous (and may require dropping into the Processor API)
 
-If you do complete the extension problem, please do raise a PR to the [solution project](https://github.com/troy-west/apache-kafka-number-stations-sln)!
+If you do complete the extension problem, please do raise a PR to the [solution project](https://github.com/troy-west/apache-kafka-number-stations-clj-sln)!
 
 ----
 
