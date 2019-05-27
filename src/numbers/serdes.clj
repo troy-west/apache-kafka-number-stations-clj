@@ -1,18 +1,27 @@
 (ns numbers.serdes
-  (:require [clojure.data.json :as json])
+  (:require [clojure.data.json :as json]
+            [clojure.tools.logging :as log])
   (:import (org.apache.kafka.common.serialization Deserializer Serde Serializer))
   (:gen-class))
 
 (deftype JsonSerializer []
   Serializer
   (configure [_ _ _])
-  (serialize [_ _ data] (.getBytes (json/write-str data)))
+  (serialize [_ _ data]
+    (try
+      (.getBytes (json/write-str data))
+      (catch Exception ex
+        (log/error ex "failed to serialize"))))
   (close [_]))
 
 (deftype JsonDeserializer []
   Deserializer
   (configure [_ _ _])
-  (deserialize [_ _ data] (json/read-str (String. data) :key-fn keyword))
+  (deserialize [_ _ data]
+    (try
+      (json/read-str (String. data) :key-fn keyword)
+      (catch Exception ex
+        (log/error ex "failed to deserialize"))))
   (close [_]))
 
 (deftype JsonSerde []

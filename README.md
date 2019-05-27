@@ -145,6 +145,14 @@ We have messages of type English, German, and Morse Code. There are also some sp
 
 # Produce Secret Radio Data to Kafka
 
+## Implement the JSON Serializer / Deserializer
+
+In order to create a producer that sends clj datastructures to Kafka first we create the Serializer and Deserializer types.
+
+* Get numbers.serde-test.* passing 
+
+Do we throw or swallow exceptions in the serialization classes, and why?
+
 ## Implement (radio/produce)
 
 Create a new KafkaProducer and send each message returned by (radio/listen) to the radio-logs topic.
