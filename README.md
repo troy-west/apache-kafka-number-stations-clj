@@ -240,7 +240,7 @@ You have implemented the Kafka Streams Topology described in the streaming compu
 
 It turns out that there are 540 number stations, and they each broadcast 960 tuples of three numbers.
 
-Those three numbers are RBG values, and we can reconstitute a 540px by 960px png image from the stream.
+Those three numbers are RGB values, and we can reconstitute a 540px by 960px png image from the stream.
 
 You can run that topology against your local cluster:
 
