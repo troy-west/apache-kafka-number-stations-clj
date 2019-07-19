@@ -19,7 +19,7 @@ Can we filter, branch, translate, group, window, and aggregate these messages to
 #### Downloading Oracle Java JDK 11+
 
 1. Visit https://www.oracle.com/technetwork/java/javase/downloads/index.html
-2. This project requires Java 9+ (we suggest 11+)
+2. This project requires Java 11+
 
 #### Docker
 
